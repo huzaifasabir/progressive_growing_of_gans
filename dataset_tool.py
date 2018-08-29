@@ -15,6 +15,7 @@ import traceback
 import numpy as np
 import tensorflow as tf
 import PIL.Image
+import pandas
 
 import tfutil
 import dataset
@@ -90,7 +91,15 @@ class TFRecordExporter:
         assert labels.shape[0] == self.cur_images
         with open(self.tfr_prefix + '-rxx.labels', 'wb') as f:
             np.save(f, labels.astype(np.float32))
-            
+
+
+    def add_emmbeddings(self, embeddings):
+        if self.print_progress:
+            print('%-40s\r' % 'Saving embeddings...', end='', flush=True)
+        #assert labels.shape[0] == self.cur_images
+        with open(self.tfr_prefix + '-rxx.embeddings', 'wb') as f:
+            np.save(f, embeddings.astype(np.float32))
+
     def __enter__(self):
         return self
     
@@ -597,13 +606,24 @@ def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_task
 
 def create_from_images(tfrecord_dir, image_dir, shuffle):
     print('Loading images from "%s"' % image_dir)
-    image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    df = pandas.read_csv('../preprocessing/50k_index_sorted.csv')
+    #image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    list1 = []
+    for i in range(len(df)):
+        list1.append(image_dir+'/' + df['category1'][i]+'/' + df['image'][i])
+    
+    image_filenames = list1
+
+    print(image_filenames[0])
+    print(len(image_filenames))
     if len(image_filenames) == 0:
         error('No input images found')
-        
+    #print(len(image_filenames))    
     img = np.asarray(PIL.Image.open(image_filenames[0]))
     resolution = img.shape[0]
     channels = img.shape[2] if img.ndim == 3 else 1
+    #print(img.shape[1])
+    #print(resolution)
     if img.shape[1] != resolution:
         error('Input images must have the same width and height')
     if resolution != 2 ** int(np.floor(np.log2(resolution))):
@@ -612,14 +632,28 @@ def create_from_images(tfrecord_dir, image_dir, shuffle):
         error('Input images must be stored as RGB or grayscale')
     
     with TFRecordExporter(tfrecord_dir, len(image_filenames)) as tfr:
-        order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
+        #order = tfr.choose_shuffled_order() if shuffle else np.arange(len(image_filenames))
+
+        order = np.arange(len(image_filenames))
         for idx in range(order.size):
             img = np.asarray(PIL.Image.open(image_filenames[order[idx]]))
+            #print(image_filenames[order[idx]])
             if channels == 1:
-                img = img[np.newaxis, :, :] # HW => CHW
+                img = img[np.newaxis, :, :] # HW => CHWs
             else:
                 img = img.transpose(2, 0, 1) # HWC => CHW
+
             tfr.add_image(img)
+        
+        npy_filename =  '../preprocessing/labels.npy'
+        if os.path.isfile(npy_filename):
+            tfr.add_labels(np.load(npy_filename)[order])
+            print('label file : ' + npy_filename)
+        
+        npy_emmbedding_filename =  '../preprocessing/sum_embedding_category.npy'
+        if os.path.isfile(npy_emmbedding_filename):
+            tfr.add_emmbeddings(np.load(npy_emmbedding_filename)[order])
+            print('label file : ' + npy_emmbedding_filename)
 
 #----------------------------------------------------------------------------
 

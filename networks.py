@@ -7,6 +7,7 @@
 
 import numpy as np
 import tensorflow as tf
+import tfutil
 
 # NOTE: Do not import any application-specific modules here!
 
@@ -144,9 +145,11 @@ def minibatch_stddev_layer(x, group_size=4):
 def G_paper(
     latents_in,                         # First input: Latent vectors [minibatch, latent_size].
     labels_in,                          # Second input: Labels [minibatch, label_size].
+    embeddings_in,                      # Third input: Labels [minibatch, embedding_size].
     num_channels        = 1,            # Number of output color channels. Overridden based on dataset.
     resolution          = 32,           # Output resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
+    embedding_size      = 0,            # Dimensionality of the embeddngs, 0 if no embedding. Overridden based on dataset.
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
@@ -172,16 +175,28 @@ def G_paper(
     
     latents_in.set_shape([None, latent_size])
     labels_in.set_shape([None, label_size])
-    combo_in = tf.cast(tf.concat([latents_in, labels_in], axis=1), dtype)
-    lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
+    embeddings_in.set_shape([None, embedding_size])
 
+    #combo_in = tf.cast(tf.concat([latents_in, labels_in], axis=1), dtype)
+    combo_in = latents_in
+    lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
+    #print('combo_in')
+    #print(combo_in.shape)
     # Building blocks.
     def block(x, res): # res = 2..resolution_log2
         with tf.variable_scope('%dx%d' % (2**res, 2**res)):
             if res == 2: # 4x4
                 if normalize_latents: x = pixel_norm(x, epsilon=pixelnorm_epsilon)
+                with tf.variable_scope('Dense4'):
+                    label = act(apply_bias(dense(labels_in, fmaps=64, use_wscale=use_wscale)))
+                with tf.variable_scope('Dense5'):
+                    embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
+                    #print(tfutil.run((label)))
                 with tf.variable_scope('Dense'):
-                    x = dense(x, fmaps=nf(res-1)*16, gain=np.sqrt(2)/4, use_wscale=use_wscale) # override gain to match the original Theano implementation
+                    #print("hello x1")
+                    #print(x.shape)
+                    combo = tf.cast(tf.concat([x,label,embedding], axis=1), dtype)
+                    x = dense(combo, fmaps=nf(res-1)*16, gain=np.sqrt(2)/4, use_wscale=use_wscale) # override gain to match the original Theano implementation
                     x = tf.reshape(x, [-1, nf(res-1), 4, 4])
                     x = PN(act(apply_bias(x)))
                 with tf.variable_scope('Conv'):
@@ -233,9 +248,13 @@ def G_paper(
 
 def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
+    labels_in,                          # class labels
+    embeddings_in,                      # text embeddings
+    predict_embedding   = False,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
+    embedding_size          = 0,        # Dimensionality of the embeddings, 0 if no embeddings. Overridden based on dataset.
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
@@ -255,6 +274,8 @@ def D_paper(
 
     images_in.set_shape([None, num_channels, resolution, resolution])
     images_in = tf.cast(images_in, dtype)
+    labels_in.set_shape([None, label_size])
+    embeddings_in.set_shape([None, embedding_size])
     lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
 
     # Building blocks.
@@ -278,10 +299,21 @@ def D_paper(
                     x = minibatch_stddev_layer(x, mbstd_group_size)
                 with tf.variable_scope('Conv'):
                     x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
+                    #print(x.shape)
+                with tf.variable_scope('Dense2'):
+                    label = act(apply_bias(dense(labels_in, fmaps=64, use_wscale=use_wscale)))
+                with tf.variable_scope('Dense3'):
+                    embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
                 with tf.variable_scope('Dense0'):
                     x = act(apply_bias(dense(x, fmaps=nf(res-2), use_wscale=use_wscale)))
+                    combo_in = tf.cast(tf.concat([x,label,embedding], axis=1), dtype)
+                    #print(x.shape)
                 with tf.variable_scope('Dense1'):
-                    x = apply_bias(dense(x, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
+                    if(predict_embedding):
+                        x = apply_bias(dense(combo_in, fmaps=1+label_size+embedding_size, gain=1, use_wscale=use_wscale))
+                    else:
+                        x = apply_bias(dense(combo_in, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
+                    #print(x.shape)
             return x
     
     # Linear structure: simple but inefficient.
@@ -296,6 +328,8 @@ def D_paper(
             with tf.variable_scope('Grow_lod%d' % lod):
                 x = lerp_clip(x, y, lod_in - lod)
         combo_out = block(x, 2)
+        #print('here')
+
 
     # Recursive structure: complex but efficient.
     if structure == 'recursive':
@@ -306,10 +340,17 @@ def D_paper(
             if res > 2: y = cset(y, (lod_in > lod), lambda: lerp(x, fromrgb(downscale2d(images_in, 2**(lod+1)), res - 1), lod_in - lod))
             return y()
         combo_out = grow(2, resolution_log2 - 2)
+        #print('here1')
 
     assert combo_out.dtype == tf.as_dtype(dtype)
+    
     scores_out = tf.identity(combo_out[:, :1], name='scores_out')
-    labels_out = tf.identity(combo_out[:, 1:], name='labels_out')
-    return scores_out, labels_out
+    labels_out = tf.identity(combo_out[:, 1:33], name='labels_out')
+    #print(labels_out)
+    if(predict_embedding):
+        embeddings_out = tf.identity(combo_out[:, 33:], name='embeddings_out')
+        return scores_out, labels_out, embeddings_out
+    else: 
+        return scores_out, labels_out
 
 #----------------------------------------------------------------------------

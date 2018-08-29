@@ -33,10 +33,10 @@ def parse_tfrecord_np(record):
 
 class TFRecordDataset:
     def __init__(self,
-        tfrecord_dir,               # Directory containing a collection of tfrecords files.
+        tfrecord_dir ,               # Directory containing a collection of tfrecords files.
         resolution      = None,     # Dataset resolution, None = autodetect.
         label_file      = None,     # Relative path of the labels file, None = autodetect.
-        max_label_size  = 0,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
+        max_label_size  = 32,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
         repeat          = True,     # Repeat dataset indefinitely.
         shuffle_mb      = 4096,     # Shuffle data within specified window (megabytes), 0 = disable shuffling.
         prefetch_mb     = 2048,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
@@ -50,12 +50,18 @@ class TFRecordDataset:
         self.dtype              = 'uint8'
         self.dynamic_range      = [0, 255]
         self.label_file         = label_file
-        self.label_size         = None      # [component]
+        self.embedding_file     = None
+        self.label_size         = 32      # [component]
+        self.embedding_size     = 300
         self.label_dtype        = None
+        self.embedding_dtype    = None
         self._np_labels         = None
+        self._np_embeddings     = None
         self._tf_minibatch_in   = None
         self._tf_labels_var     = None
         self._tf_labels_dataset = None
+        self._tf_embeddings_var = None
+        self._tf_embeddings_dataset = None
         self._tf_datasets       = dict()
         self._tf_iterator       = None
         self._tf_init_ops       = dict()
@@ -64,6 +70,7 @@ class TFRecordDataset:
         self._cur_lod           = -1
 
         # List tfrecords files and inspect their shapes.
+        print(self.tfrecord_dir)
         assert os.path.isdir(self.tfrecord_dir)
         tfr_files = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*.tfrecords')))
         assert len(tfr_files) >= 1
@@ -84,6 +91,16 @@ class TFRecordDataset:
             if os.path.isfile(guess):
                 self.label_file = guess
 
+        # Autodetect embedding filename.
+        if self.embedding_file is None:
+            guess = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*.embeddings')))
+            if len(guess):
+                self.embedding_file = guess[0]
+        elif not os.path.isfile(self.embedding_file):
+            guess = os.path.join(self.tfrecord_dir, self.embedding_file)
+            if os.path.isfile(guess):
+                self.embedding_file = guess
+
         # Determine shape and resolution.
         max_shape = max(tfr_shapes, key=lambda shape: np.prod(shape))
         self.resolution = resolution if resolution is not None else max_shape[1]
@@ -100,25 +117,45 @@ class TFRecordDataset:
         self._np_labels = np.zeros([1<<20, 0], dtype=np.float32)
         if self.label_file is not None and max_label_size != 0:
             self._np_labels = np.load(self.label_file)
+            #self._np_labels = self._np_labels.reshape(self._np_labels.shape[0],1)
             assert self._np_labels.ndim == 2
         if max_label_size != 'full' and self._np_labels.shape[1] > max_label_size:
             self._np_labels = self._np_labels[:, :max_label_size]
         self.label_size = self._np_labels.shape[1]
         self.label_dtype = self._np_labels.dtype.name
 
+        #load embeddings
+        self._np_embeddings = np.zeros([1<<20, 0], dtype=np.float32)
+        if self.embedding_file is not None and max_label_size != 0:
+            self._np_embeddings = np.load(self.embedding_file)
+            self._np_embeddings = self._np_embeddings.astype('float32')
+            #self._np_labels = self._np_labels.reshape(self._np_labels.shape[0],1)
+            assert self._np_embeddings.ndim == 2
+        self.embedding_size = self._np_embeddings.shape[1]
+        self.embedding_dtype = self._np_embeddings.dtype.name
+
         # Build TF expressions.
         with tf.name_scope('Dataset'), tf.device('/cpu:0'):
             self._tf_minibatch_in = tf.placeholder(tf.int64, name='minibatch_in', shape=[])
+
             tf_labels_init = tf.zeros(self._np_labels.shape, self._np_labels.dtype)
             self._tf_labels_var = tf.Variable(tf_labels_init, name='labels_var')
             tfutil.set_vars({self._tf_labels_var: self._np_labels})
             self._tf_labels_dataset = tf.data.Dataset.from_tensor_slices(self._tf_labels_var)
+            
+            tf_embeddings_init = tf.zeros(self._np_embeddings.shape, self._np_embeddings.dtype)
+            self._tf_embeddings_var = tf.Variable(tf_embeddings_init, name='embeddings_var')
+            tfutil.set_vars({self._tf_embeddings_var: self._np_embeddings})
+            self._tf_embeddings_dataset = tf.data.Dataset.from_tensor_slices(self._tf_embeddings_var)
+
             for tfr_file, tfr_shape, tfr_lod in zip(tfr_files, tfr_shapes, tfr_lods):
                 if tfr_lod < 0:
                     continue
                 dset = tf.data.TFRecordDataset(tfr_file, compression_type='', buffer_size=buffer_mb<<20)
                 dset = dset.map(parse_tfrecord_tf, num_parallel_calls=num_threads)
-                dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset))
+                dset = tf.data.Dataset.zip(((dset, self._tf_labels_dataset, self._tf_embeddings_dataset)))
+                #dset = tf.data.Dataset.zip((dset, self._tf_embeddings_dataset))
+                #print(dset)
                 bytes_per_item = np.prod(tfr_shape) * np.dtype(self.dtype).itemsize
                 if shuffle_mb > 0:
                     dset = dset.shuffle(((shuffle_mb << 20) - 1) // bytes_per_item + 1)
@@ -141,29 +178,31 @@ class TFRecordDataset:
             self._cur_lod = lod
 
     # Get next minibatch as TensorFlow expressions.
-    def get_minibatch_tf(self): # => images, labels
+    def get_minibatch_tf(self): # => images, labels, embeddings
         return self._tf_iterator.get_next()
 
     # Get next minibatch as NumPy arrays.
-    def get_minibatch_np(self, minibatch_size, lod=0): # => images, labels
+    def get_minibatch_np(self, minibatch_size, lod=0): # => images, labels, embeddings
         self.configure(minibatch_size, lod)
         if self._tf_minibatch_np is None:
             self._tf_minibatch_np = self.get_minibatch_tf()
         return tfutil.run(self._tf_minibatch_np)
 
-    # Get random labels as TensorFlow expression.
-    def get_random_labels_tf(self, minibatch_size): # => labels
+    # Get random labels & embeddings as TensorFlow expression.
+    def get_random_labels_tf(self, minibatch_size): # => labels, embeddings
         if self.label_size > 0:
-            return tf.gather(self._tf_labels_var, tf.random_uniform([minibatch_size], 0, self._np_labels.shape[0], dtype=tf.int32))
+            rand = tf.random_uniform([minibatch_size], 0, self._np_labels.shape[0], dtype=tf.int32)
+            return tf.gather(self._tf_labels_var, rand), tf.gather(self._tf_embeddings_var, rand)
         else:
-            return tf.zeros([minibatch_size, 0], self.label_dtype)
+            return tf.zeros([minibatch_size, 0], self.label_dtype), tf.zeros([minibatch_size, 0], self.embedding_dtype)
 
     # Get random labels as NumPy array.
-    def get_random_labels_np(self, minibatch_size): # => labels
+    def get_random_labels_np(self, minibatch_size): # => labels, embeddings
         if self.label_size > 0:
-            return self._np_labels[np.random.randint(self._np_labels.shape[0], size=[minibatch_size])]
+            rand = np.random.randint(self._np_labels.shape[0], size=[minibatch_size])
+            return self._np_labels[rand], self._np_embeddings[rand]
         else:
-            return np.zeros([minibatch_size, 0], self.label_dtype)
+            return np.zeros([minibatch_size, 0], self.label_dtype), np.zeros([minibatch_size, 0], self.embedding_dtype)
 
 #----------------------------------------------------------------------------
 # Base class for datasets that are generated on the fly.
@@ -236,6 +275,7 @@ def load_dataset(class_name='dataset.TFRecordDataset', data_dir=None, verbose=Fa
         print('Dataset shape =', np.int32(dataset.shape).tolist())
         print('Dynamic range =', dataset.dynamic_range)
         print('Label size    =', dataset.label_size)
+        print('Emmbeddings size    =', dataset.embedding_size)
     return dataset
 
 #----------------------------------------------------------------------------

@@ -31,14 +31,25 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
     random_state = np.random.RandomState(random_seed)
 
+    classes = list(range(0, 32))
+    classes = tf.one_hot(classes, 32)
+    sess = tf.Session()
+
+
     print('Loading network from "%s"...' % network_pkl)
     G, D, Gs = misc.load_network_pkl(run_id, snapshot)
 
     result_subdir = misc.create_result_subdir(config.result_dir, config.desc)
+    latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
+    #print(latents.shape)
     for png_idx in range(num_pngs):
         print('Generating png %d / %d...' % (png_idx, num_pngs))
-        latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
-        labels = np.zeros([latents.shape[0], 0], np.float32)
+        labels = sess.run(classes[png_idx])
+        #latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
+        #labels = np.zeros([latents.shape[0], 0], np.float32)
+        
+        labels = labels.reshape(1,labels.shape[0])
+        print(labels.shape)
         images = Gs.run(latents, labels, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (png_prefix, png_idx)), [0,255], grid_size)
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()

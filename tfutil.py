@@ -500,13 +500,20 @@ class Network:
 
     # Get TensorFlow expression(s) for the output(s) of this network, given the inputs.
     def get_output_for(self, *in_expr, return_as_list=False, **dynamic_kwargs):
+        #print(len(in_expr))
+        #print(self.num_inputs)
+        #print(self.input_names)
+        #print(in_expr)
         assert len(in_expr) == self.num_inputs
         all_kwargs = dict(self.static_kwargs)
         all_kwargs.update(dynamic_kwargs)
         with tf.variable_scope(self.scope, reuse=True):
             assert tf.get_variable_scope().name == self.scope
+            #print(tf.get_variable_scope().name)
             named_inputs = [tf.identity(expr, name=name) for expr, name in zip(in_expr, self.input_names)]
+            #print(named_inputs)
             out_expr = self._build_func(*named_inputs, **all_kwargs)
+        #print(out_expr)
         assert is_tf_expression(out_expr) or isinstance(out_expr, tuple)
         if return_as_list:
             out_expr = [out_expr] if is_tf_expression(out_expr) else list(out_expr)
