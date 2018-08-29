@@ -52,7 +52,7 @@ class TFRecordDataset:
         self.label_file         = label_file
         self.embedding_file     = None
         self.label_size         = 32      # [component]
-        self.embedding_size     = 300
+        self.embedding_size     = 0
         self.label_dtype        = None
         self.embedding_dtype    = None
         self._np_labels         = None
@@ -192,7 +192,11 @@ class TFRecordDataset:
     def get_random_labels_tf(self, minibatch_size): # => labels, embeddings
         if self.label_size > 0:
             rand = tf.random_uniform([minibatch_size], 0, self._np_labels.shape[0], dtype=tf.int32)
-            return tf.gather(self._tf_labels_var, rand), tf.gather(self._tf_embeddings_var, rand)
+            if(self.embedding_size > 0 ):
+                embedd =  tf.gather(self._tf_embeddings_var, rand)
+            else:
+                embedd =  tf.zeros([minibatch_size, 0], self.embedding_dtype)
+            return tf.gather(self._tf_labels_var, rand), embedd
         else:
             return tf.zeros([minibatch_size, 0], self.label_dtype), tf.zeros([minibatch_size, 0], self.embedding_dtype)
 
@@ -200,7 +204,12 @@ class TFRecordDataset:
     def get_random_labels_np(self, minibatch_size): # => labels, embeddings
         if self.label_size > 0:
             rand = np.random.randint(self._np_labels.shape[0], size=[minibatch_size])
-            return self._np_labels[rand], self._np_embeddings[rand]
+            if(self.embedding_size > 0 ):
+                embedd = self._np_embeddings[rand] 
+            else:
+                embedd = np.zeros([minibatch_size, 0], self.embedding_dtype)
+
+            return self._np_labels[rand], embedd
         else:
             return np.zeros([minibatch_size, 0], self.label_dtype), np.zeros([minibatch_size, 0], self.embedding_dtype)
 

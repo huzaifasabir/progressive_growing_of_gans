@@ -28,6 +28,8 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     cond_weight = 1.0): # Weight of the conditioning term.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
+    print(G.input_shapes[0][1:])
+    print(latents)
     labels, embeddings = training_set.get_random_labels_tf(minibatch_size)
     #labels = training_set.get_random_labels_tf(minibatch_size)
     fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
@@ -44,7 +46,7 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
 
         if(use_embedding):
             with tf.name_scope('EmbeddingPenalty'):
-                embedding_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=embeddings, logits=fake_embeddings_out)
+                embedding_penalty_fakes = tf.losses.mean_squared_error(labels=embeddings, logits=fake_embeddings_out)
             loss += embedding_penalty_fakes * cond_weight
     return loss
 
@@ -98,8 +100,8 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
         loss += (label_penalty_reals + label_penalty_fakes) * cond_weight
         if(use_embedding):
             with tf.name_scope('EmbeddingPenalty'):
-                embedding_penalty_reals = tf.nn.softmax_cross_entropy_with_logits_v2(labels=embeddings, logits=real_embeddings_out)
-                embedding_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=embeddings, logits=fake_embeddings_out)
+                embedding_penalty_reals = tf.losses.mean_squared_error(labels=embeddings, logits=real_embeddings_out)
+                embedding_penalty_fakes = tf.losses.mean_squared_error(labels=embeddings, logits=fake_embeddings_out)
                 embedding_penalty_reals = tfutil.autosummary('Loss/embedding_penalty_reals', embedding_penalty_reals)
                 embedding_penalty_fakes = tfutil.autosummary('Loss/embedding_penalty_fakes', embedding_penalty_fakes)
             loss += (embedding_penalty_reals + embedding_penalty_fakes) * cond_weight
