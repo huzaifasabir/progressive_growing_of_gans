@@ -153,7 +153,7 @@ def G_paper(
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
-    latent_size         = 32,           # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
+    latent_size         = None,           # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
     normalize_latents   = True,         # Normalize latent vectors before feeding them to the network?
     use_wscale          = True,         # Enable equalized learning rate?
     use_pixelnorm       = True,         # Enable pixelwise feature vector normalization?
@@ -188,7 +188,7 @@ def G_paper(
             if res == 2: # 4x4
                 if normalize_latents: x = pixel_norm(x, epsilon=pixelnorm_epsilon)
                 with tf.variable_scope('Dense4'):
-                    label = act(apply_bias(dense(labels_in, fmaps=32, use_wscale=use_wscale)))
+                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
                 if(embedding_size > 0 ):    
                     with tf.variable_scope('Dense5'):
                         embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
@@ -305,7 +305,7 @@ def D_paper(
                     x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
                     #print(x.shape)
                 with tf.variable_scope('Dense2'):
-                    label = act(apply_bias(dense(labels_in, fmaps=32, use_wscale=use_wscale)))
+                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
                 if(embedding_size > 0 ):    
                     with tf.variable_scope('Dense3'):
                         embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
@@ -320,7 +320,7 @@ def D_paper(
                     if(predict_embedding):
                         x = apply_bias(dense(combo_in, fmaps=1+label_size+embedding_size, gain=1, use_wscale=use_wscale))
                     else:
-                        x = apply_bias(dense(combo_in, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
+                        x = apply_bias(dense(combo_in, fmaps=1, gain=1, use_wscale=use_wscale))
                     #print(x.shape)
             return x
     

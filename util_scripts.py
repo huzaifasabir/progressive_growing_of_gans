@@ -20,45 +20,91 @@ import misc
 import tfutil
 import train
 import dataset
+import random
+import pandas
 
 #----------------------------------------------------------------------------
 # Generate random images or image grids using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
 def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
+    
+    embeddings_contant = True  
+    labels_constant = False
+    latents_constant = True
+    
+
+    idx = random.randint(0,56880)
+    df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
+    print('embeddings_contant : ' + str(embeddings_contant))
+    print('labels_constant : ' + str(labels_constant))
+    print('latents_constant : ' + str(latents_constant))
+
     network_pkl = misc.locate_network_pkl(run_id, snapshot)
     if png_prefix is None:
         png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
     random_state = np.random.RandomState(random_seed)
 
-    classes = list(range(0, 32))
-    classes = tf.one_hot(classes, 32)
-    sess = tf.Session()
-
-
     print('Loading network from "%s"...' % network_pkl)
     G, D, Gs = misc.load_network_pkl(run_id, snapshot)
 
-    result_subdir = misc.create_result_subdir(config.result_dir, config.desc)
-    latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
+    result_subdir = misc.create_result_subdir(config.result_dir+'/'+run_id, config.desc)
+
+    if latents_constant :
+        latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
+    #embeddings = np.zeros([1, 300], dtype=np.float32)
+    #labels = np.zeros([1, 32], dtype=np.float32)
+    embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
+    embeddings = embeddings.astype('float32')
+
+    labels = np.load('datasets/50k_sorted_tf/sum_embedding_category_average.labels')
+    labels = labels.astype('float32')
+    name1 = ''
+    if labels_constant:
+        label = labels[idx]
+        name1 = name1 + ' ' + df.at[idx, 'category1']
+        label = label.reshape(1,label.shape[0])
+    
+    if embeddings_contant:
+        embedding = embeddings[idx]
+        title = df.at[idx, 'title']
+        name1 = name1 + ' ' +title[:10]
+        embedding = embedding.reshape(1,embedding.shape[0])
+    
     #print(latents.shape)
     for png_idx in range(num_pngs):
+        name = ''
+        name = name + name1
         print('Generating png %d / %d...' % (png_idx, num_pngs))
-        labels = sess.run(classes[png_idx])
-        #latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
-        #labels = np.zeros([latents.shape[0], 0], np.float32)
+        rand = random.randint(0,56880)
+        #rand = png_idx * 1810
+        #labels = sess.run(classes[0])
+        if not latents_constant:
+            latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
+        if not labels_constant:
+            label = labels[rand]
+            label = label.reshape(1,label.shape[0])
+            name = name + ' ' + df.at[rand, 'category1']
+        if not embeddings_contant:
+            embedding = embeddings[rand]
+            title = df.at[rand, 'title']
+            name = name + ' ' +title[:10]
+            embedding = embedding.reshape(1,embedding.shape[0])
         
-        labels = labels.reshape(1,labels.shape[0])
-        print(labels.shape)
-        images = Gs.run(latents, labels, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
-        misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (png_prefix, png_idx)), [0,255], grid_size)
+        
+        
+        #print(labels.shape)
+        images = Gs.run(latents, label, embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
+        misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (name, png_idx)), [0,255], grid_size)
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
+    
+
 
 #----------------------------------------------------------------------------
 # Generate MP4 video of random interpolations using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_shrink=1, image_zoom=1, duration_sec=60.0, smoothing_sec=1.0, mp4=None, mp4_fps=30, mp4_codec='libx265', mp4_bitrate='16M', random_seed=1000, minibatch_size=8):
+def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_shrink=1, image_zoom=1, duration_sec=5.0, smoothing_sec=1.0, mp4=None, mp4_fps=30, mp4_codec='libx265', mp4_bitrate='16M', random_seed=1000, minibatch_size=8):
     network_pkl = misc.locate_network_pkl(run_id, snapshot)
     if mp4 is None:
         mp4 = misc.get_id_string_for_network_pkl(network_pkl) + '-lerp.mp4'
@@ -79,7 +125,17 @@ def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_s
         frame_idx = int(np.clip(np.round(t * mp4_fps), 0, num_frames - 1))
         latents = all_latents[frame_idx]
         labels = np.zeros([latents.shape[0], 0], np.float32)
-        images = Gs.run(latents, labels, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
+        classes = list(range(0, 32))
+        classes = tf.one_hot(classes, 32)
+        sess = tf.Session()
+        labels = sess.run(classes[30])
+        labels = labels.reshape(1,labels.shape[0])
+        sess.close()
+        embeddings = np.load('datasets/50k_sorted_tf-rxx.embeddings')
+        embeddings = embeddings.astype('float32')
+        embedding = embeddings[54200]
+        embedding = embedding.reshape(1,embedding.shape[0])
+        images = Gs.run(latents, labels,embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         grid = misc.create_image_grid(images, grid_size).transpose(1, 2, 0) # HWC
         if image_zoom > 1:
             grid = scipy.ndimage.zoom(grid, [image_zoom, image_zoom, 1], order=0)

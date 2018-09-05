@@ -36,7 +36,7 @@ class TFRecordDataset:
         tfrecord_dir ,               # Directory containing a collection of tfrecords files.
         resolution      = None,     # Dataset resolution, None = autodetect.
         label_file      = None,     # Relative path of the labels file, None = autodetect.
-        max_label_size  = 32,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
+        max_label_size  = 300,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
         repeat          = True,     # Repeat dataset indefinitely.
         shuffle_mb      = 4096,     # Shuffle data within specified window (megabytes), 0 = disable shuffling.
         prefetch_mb     = 2048,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
@@ -51,7 +51,7 @@ class TFRecordDataset:
         self.dynamic_range      = [0, 255]
         self.label_file         = label_file
         self.embedding_file     = None
-        self.label_size         = 32      # [component]
+        self.label_size         = 300      # [component]
         self.embedding_size     = 0
         self.label_dtype        = None
         self.embedding_dtype    = None
@@ -117,6 +117,7 @@ class TFRecordDataset:
         self._np_labels = np.zeros([1<<20, 0], dtype=np.float32)
         if self.label_file is not None and max_label_size != 0:
             self._np_labels = np.load(self.label_file)
+            self._np_labels = self._np_labels.astype('float32')
             #self._np_labels = self._np_labels.reshape(self._np_labels.shape[0],1)
             assert self._np_labels.ndim == 2
         if max_label_size != 'full' and self._np_labels.shape[1] > max_label_size:

@@ -96,12 +96,32 @@ def trainModel(options):
 			try:
 				tokenizedList = sent_tokenize(re.sub(r'[\d+]','', text))[0]
 			except:
+				print(text)
+				df.at[i, '2'] = []
 				dropIndices.append(i)
 				continue
+			#print(tokenizedList)
 
-			wordList = word_tokenize(tokenizedList)
-			filteredTokenList = [word.lower() for word in wordList if word.lower() not in stopWordsList \
-										and word not in string.punctuation + zhpunc]
+			sub_categories = tokenizedList.split(',')
+			wordList = []
+			for word in sub_categories:
+				wordList.append(word_tokenize(word))
+			
+			#print(wordList)
+
+			#wordList = word_tokenize(sub_categories)
+			#print(wordList)
+
+			# filteredTokenList = [word.lower() for word in wordList if word.lower() not in stopWordsList \
+			# 							and word not in string.punctuation + zhpunc]
+			filteredTokenList = [] 
+			for sub_category in wordList:
+				filteredTokenList1 = []
+				for word in sub_category:
+					if word.lower() not in stopWordsList and word not in string.punctuation + zhpunc:
+						filteredTokenList1.append(word.lower())
+				filteredTokenList.append(filteredTokenList1)
+			#print(filteredTokenList)
 			#filteredTokenList = wordList
 			#print(filteredTokenList)
 			if options.trainEmbeddinglayer:
@@ -110,13 +130,22 @@ def trainModel(options):
 			#print(filteredTokenList)
 
 			# Add the words to the vocabulary as well
-			for word in filteredTokenList:
-				if word not in vocabulary:
-					vocabulary[word] = maxVocabIndex
-					maxVocabIndex += 1
+			for sub_category in filteredTokenList:
+				for word in sub_category:
+					if word not in vocabulary:
+						vocabulary[word] = maxVocabIndex
+						maxVocabIndex += 1
+			#print(vocabulary)
 
-			idxFilteredTokenList = [vocabulary[word] for word in filteredTokenList]
+			#idxFilteredTokenList = [vocabulary[word] for word in filteredTokenList]
 
+			idxFilteredTokenList = []
+			for sub_category in filteredTokenList:
+				idxFilteredTokenList1 = []
+				for word in sub_category:
+					idxFilteredTokenList1.append(vocabulary[word])
+				idxFilteredTokenList.append(idxFilteredTokenList1)
+			#print(idxFilteredTokenList)
 			# Add the updated word to the df
 			if len(filteredTokenList) < options.maxSequenceLength:
 				df.at[i, '0'] = filteredTokenList
@@ -124,6 +153,10 @@ def trainModel(options):
 			else:
 				df.at[i, '0'] = filteredTokenList[:options.maxSequenceLength]
 				df.at[i, '2'] = idxFilteredTokenList[:options.maxSequenceLength]
+
+
+		print(dropIndices)
+
 
 		print ("Dropping unresolved indices")
 		print ("Size before dropping: %d" % df.shape[0])
@@ -152,7 +185,7 @@ if __name__ == "__main__":
 	parser.add_option("--testModel", action="store_true", dest="testModel", default=False, help="Whether to test the model")
 
 	parser.add_option("--createNewDataFile", action="store_true", dest="createNewDataFile", default=True, help="Whether to create new data file")
-	parser.add_option("--dataFileName", action="store", type="string", dest="dataFileName", default="category_data1.pkl", help="Data file name")
+	parser.add_option("--dataFileName", action="store", type="string", dest="dataFileName", default="category_data9.pkl", help="Data file name")
 	parser.add_option("--trainingDataFileName", action="store", type="string", dest="trainingDataFileName", default="../preprocessing/50k_index_sorted.csv", help="Name of the file containing the training samples")
 	parser.add_option("--testDataFileName", action="store", type="string", dest="testDataFileName", default="./assets/test.csv", help="Name of the file containing the test samples")
 	parser.add_option("--testOutputFileName", action="store", type="string", dest="testOutputFileName", default="./assets/out.csv", help="Name of the file containing the predictions for the test samples")
