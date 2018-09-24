@@ -29,9 +29,9 @@ import pandas
 
 def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
     
-    embeddings_contant = True  
+    embeddings_contant = False  
     labels_constant = False
-    latents_constant = True
+    latents_constant = False
     
 
     idx = random.randint(0,56880)

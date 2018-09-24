@@ -6,7 +6,7 @@ import codecs
 import pickle
 from optparse import OptionParser
 
-import keras
+#import keras
 import numpy as np
 import pandas
 
@@ -103,11 +103,12 @@ def trainModel(options):
 			#print(tokenizedList)
 
 			sub_categories = tokenizedList.split(',')
+			print(sub_categories)
 			wordList = []
 			for word in sub_categories:
 				wordList.append(word_tokenize(word))
 			
-			#print(wordList)
+			print(wordList)
 
 			#wordList = word_tokenize(sub_categories)
 			#print(wordList)
@@ -131,6 +132,7 @@ def trainModel(options):
 
 			# Add the words to the vocabulary as well
 			for sub_category in filteredTokenList:
+				print(sub_category)
 				for word in sub_category:
 					if word not in vocabulary:
 						vocabulary[word] = maxVocabIndex
@@ -190,7 +192,7 @@ if __name__ == "__main__":
 	parser.add_option("--testDataFileName", action="store", type="string", dest="testDataFileName", default="./assets/test.csv", help="Name of the file containing the test samples")
 	parser.add_option("--testOutputFileName", action="store", type="string", dest="testOutputFileName", default="./assets/out.csv", help="Name of the file containing the predictions for the test samples")
 	parser.add_option("--useLSTM", action="store_true", dest="useLSTM", default=False, help="Use LSTM network instead of the ConvNet")
-	parser.add_option("--maxSequenceLength", action="store", type="int", dest="maxSequenceLength", default=10, help="Maximum sentence length to be used")
+	parser.add_option("--maxSequenceLength", action="store", type="int", dest="maxSequenceLength", default=30, help="Maximum sentence length to be used")
 	parser.add_option("--modelName", action="store", type="string", dest="modelName", default="./sentiment-analyzer.h5", help="Name of the model to be saved")
 
 	parser.add_option("--batchSize", action="store", type="int", dest="batchSize", default=32, help="Batch size to be used")

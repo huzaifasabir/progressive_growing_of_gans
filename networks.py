@@ -254,7 +254,7 @@ def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
     labels_in,                          # class labels
     embeddings_in,                      # text embeddings
-    predict_embedding   = False,
+    predict_embedding   = True,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
@@ -353,10 +353,10 @@ def D_paper(
     assert combo_out.dtype == tf.as_dtype(dtype)
     
     scores_out = tf.identity(combo_out[:, :1], name='scores_out')
-    labels_out = tf.identity(combo_out[:, 1:33], name='labels_out')
+    labels_out = tf.identity(combo_out[:, 1:label_size+1], name='labels_out')
     #print(labels_out)
     if(predict_embedding):
-        embeddings_out = tf.identity(combo_out[:, 33:], name='embeddings_out')
+        embeddings_out = tf.identity(combo_out[:, label_size+1:], name='embeddings_out')
         return scores_out, labels_out, embeddings_out
     else: 
         return scores_out, labels_out
