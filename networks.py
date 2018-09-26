@@ -254,7 +254,7 @@ def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
     labels_in,                          # class labels
     embeddings_in,                      # text embeddings
-    predict_embedding   = False,
+    predict_embedding   = True,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
@@ -304,21 +304,24 @@ def D_paper(
                 with tf.variable_scope('Conv'):
                     x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
                     #print(x.shape)
-                with tf.variable_scope('Dense2'):
-                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
-                if(embedding_size > 0 ):    
-                    with tf.variable_scope('Dense3'):
-                        embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
+                if(predict_embedding):
+                    with tf.variable_scope('Dense2'):
+                        label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
+                    if(embedding_size > 0 ):    
+                        with tf.variable_scope('Dense3'):
+                            embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
+
                 with tf.variable_scope('Dense0'):
                     x = act(apply_bias(dense(x, fmaps=nf(res-2), use_wscale=use_wscale)))
-                    if(embedding_size > 0 ): 
-                        combo_in = tf.cast(tf.concat([x,label,embedding], axis=1), dtype)
+                    if(predict_embedding): 
+                        combo_in = x
                     else:
-                        combo_in = tf.cast(tf.concat([x,label], axis=1), dtype)
+                        combo_in = tf.cast(tf.concat([x,label,embedding], axis=1), dtype)
+                        
                     #print(x.shape)
                 with tf.variable_scope('Dense1'):
                     if(predict_embedding):
-                        x = apply_bias(dense(combo_in, fmaps=1+label_size+embedding_size, gain=1, use_wscale=use_wscale))
+                        x = apply_bias(dense(combo_in, fmaps=1+300+embedding_size, gain=1, use_wscale=use_wscale))
                     else:
                         x = apply_bias(dense(combo_in, fmaps=1, gain=1, use_wscale=use_wscale))
                     #print(x.shape)
@@ -353,10 +356,10 @@ def D_paper(
     assert combo_out.dtype == tf.as_dtype(dtype)
     
     scores_out = tf.identity(combo_out[:, :1], name='scores_out')
-    labels_out = tf.identity(combo_out[:, 1:label_size+1], name='labels_out')
+    labels_out = tf.identity(combo_out[:, 1:300+1], name='labels_out')
     #print(labels_out)
     if(predict_embedding):
-        embeddings_out = tf.identity(combo_out[:, label_size+1:], name='embeddings_out')
+        embeddings_out = tf.identity(combo_out[:, 300+1:], name='embeddings_out')
         return scores_out, labels_out, embeddings_out
     else: 
         return scores_out, labels_out
