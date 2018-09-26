@@ -24,7 +24,7 @@ def fp32(*values):
 # Generator loss function used in the paper (WGAN + AC-GAN).
 
 def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
-    use_embedding   = True,
+    use_embedding   = False,
     cond_weight = 1.0): # Weight of the conditioning term.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
@@ -55,7 +55,7 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
 # Discriminator loss function used in the paper (WGAN-GP + AC-GAN).
 
 def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings,
-    use_embedding   = True,
+    use_embedding   = False,
     wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.

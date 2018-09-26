@@ -36,7 +36,7 @@ class TFRecordDataset:
         tfrecord_dir ,               # Directory containing a collection of tfrecords files.
         resolution      = None,     # Dataset resolution, None = autodetect.
         label_file      = None,     # Relative path of the labels file, None = autodetect.
-        max_label_size  = 300,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
+        max_label_size  = 2000,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
         repeat          = True,     # Repeat dataset indefinitely.
         shuffle_mb      = 4096,     # Shuffle data within specified window (megabytes), 0 = disable shuffling.
         prefetch_mb     = 2048,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
@@ -51,7 +51,7 @@ class TFRecordDataset:
         self.dynamic_range      = [0, 255]
         self.label_file         = label_file
         self.embedding_file     = None
-        self.label_size         = 300      # [component]
+        self.label_size         = 0      # [component]
         self.embedding_size     = 0
         self.label_dtype        = None
         self.embedding_dtype    = None

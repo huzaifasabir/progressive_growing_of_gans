@@ -254,7 +254,7 @@ def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
     labels_in,                          # class labels
     embeddings_in,                      # text embeddings
-    predict_embedding   = True,
+    predict_embedding   = False,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
@@ -262,7 +262,7 @@ def D_paper(
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
-    use_wscale          = True,         # Enable equalized learning rate?
+    use_wscale          = False,         # Enable equalized learning rate?
     mbstd_group_size    = 4,            # Group size for the minibatch standard deviation layer, 0 = disable.
     dtype               = 'float32',    # Data type to use for activations and outputs.
     fused_scale         = True,         # True = use fused conv2d + downscale2d, False = separate downscale2d layers.

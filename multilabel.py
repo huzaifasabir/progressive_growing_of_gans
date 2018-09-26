@@ -195,8 +195,8 @@ def trainModel(options):
 	#print(df)
 
 	#occurrences.append(p)
-	with open(options.dataFileName, "wb") as f:
-		pickle.dump([df, new_vocab, index], f)
+	#with open(options.dataFileName, "wb") as f:
+	#	pickle.dump([df, new_vocab, index], f)
 
 
 
