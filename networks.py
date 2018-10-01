@@ -356,12 +356,13 @@ def D_paper(
     assert combo_out.dtype == tf.as_dtype(dtype)
     
     scores_out = tf.identity(combo_out[:, :1], name='scores_out')
-    labels_out = tf.identity(combo_out[:, 1:300+1], name='labels_out')
+    
     #print(labels_out)
     if(predict_embedding):
+        labels_out = tf.identity(combo_out[:, 1:300+1], name='labels_out')
         embeddings_out = tf.identity(combo_out[:, 300+1:], name='embeddings_out')
         return scores_out, labels_out, embeddings_out
     else: 
-        return scores_out, labels_out
+        return scores_out
 
 #----------------------------------------------------------------------------

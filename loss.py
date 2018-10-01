@@ -36,16 +36,17 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     if(use_embedding):
         fake_scores_out, fake_labels_out, fake_embeddings_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
     else:
-        fake_scores_out, fake_labels_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
+        fake_scores_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
     loss = -fake_scores_out
 
     if D.output_shapes[1][1] > 0:
-        with tf.name_scope('LabelPenalty'):
-            #label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
-            label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
-        loss += label_penalty_fakes * cond_weight
+        
 
         if(use_embedding):
+            with tf.name_scope('LabelPenalty'):
+                #label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
+                label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
+            loss += label_penalty_fakes * cond_weight
             with tf.name_scope('EmbeddingPenalty'):
                 embedding_penalty_fakes = tf.losses.mean_squared_error(embeddings, fake_embeddings_out)
             loss += embedding_penalty_fakes * cond_weight
@@ -79,7 +80,7 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
         if(use_embedding):
             mixed_scores_out, mixed_labels_out, mixed_embeddings_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings, is_training=True))
         else:
-            mixed_scores_out, mixed_labels_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings, is_training=True))
+            mixed_scores_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings, is_training=True))
         mixed_scores_out = tfutil.autosummary('Loss/mixed_scores', mixed_scores_out)
         mixed_loss = opt.apply_loss_scaling(tf.reduce_sum(mixed_scores_out))
         mixed_grads = opt.undo_loss_scaling(fp32(tf.gradients(mixed_loss, [mixed_images_out])[0]))
@@ -93,15 +94,16 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     loss += epsilon_penalty * wgan_epsilon
 
     if D.output_shapes[1][1] > 0:
-        with tf.name_scope('LabelPenalty'):
-            #label_penalty_reals = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=real_labels_out)
-            #label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
-            label_penalty_reals = tf.losses.mean_squared_error(labels, real_labels_out)
-            label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
-            label_penalty_reals = tfutil.autosummary('Loss/label_penalty_reals', label_penalty_reals)
-            label_penalty_fakes = tfutil.autosummary('Loss/label_penalty_fakes', label_penalty_fakes)
-        loss += (label_penalty_reals + label_penalty_fakes) * cond_weight
+        
         if(use_embedding):
+            with tf.name_scope('LabelPenalty'):
+                #label_penalty_reals = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=real_labels_out)
+                #label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
+                label_penalty_reals = tf.losses.mean_squared_error(labels, real_labels_out)
+                label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
+                label_penalty_reals = tfutil.autosummary('Loss/label_penalty_reals', label_penalty_reals)
+                label_penalty_fakes = tfutil.autosummary('Loss/label_penalty_fakes', label_penalty_fakes)
+            loss += (label_penalty_reals + label_penalty_fakes) * cond_weight
             with tf.name_scope('EmbeddingPenalty'):
                 embedding_penalty_reals = tf.losses.mean_squared_error(embeddings, real_embeddings_out)
                 embedding_penalty_fakes = tf.losses.mean_squared_error(embeddings, fake_embeddings_out)
