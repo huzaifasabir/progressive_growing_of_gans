@@ -24,7 +24,7 @@ def fp32(*values):
 # Generator loss function used in the paper (WGAN + AC-GAN).
 
 def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
-    use_embedding   = True,
+    use_embedding   = False,
     cond_weight = 1.0): # Weight of the conditioning term.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
@@ -39,10 +39,9 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
         fake_scores_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
     loss = -fake_scores_out
 
-    if D.output_shapes[1][1] > 0:
-        
+    if(use_embedding):
 
-        if(use_embedding):
+        if D.output_shapes[1][1] > 0:
             with tf.name_scope('LabelPenalty'):
                 #label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
                 label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
@@ -56,7 +55,7 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
 # Discriminator loss function used in the paper (WGAN-GP + AC-GAN).
 
 def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings,
-    use_embedding   = True,
+    use_embedding   = False,
     wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.
@@ -68,8 +67,8 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
         real_scores_out, real_labels_out, real_embeddings_out = fp32(D.get_output_for(reals, labels, embeddings, is_training=True))
         fake_scores_out, fake_labels_out, fake_embeddings_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
     else:
-        real_scores_out, real_labels_out = fp32(D.get_output_for(reals, labels, embeddings, is_training=True))
-        fake_scores_out, fake_labels_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
+        real_scores_out = fp32(D.get_output_for(reals, labels, embeddings, is_training=True))
+        fake_scores_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
     real_scores_out = tfutil.autosummary('Loss/real_scores', real_scores_out)
     fake_scores_out = tfutil.autosummary('Loss/fake_scores', fake_scores_out)
     loss = fake_scores_out - real_scores_out
@@ -93,9 +92,9 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
         epsilon_penalty = tfutil.autosummary('Loss/epsilon_penalty', tf.square(real_scores_out))
     loss += epsilon_penalty * wgan_epsilon
 
-    if D.output_shapes[1][1] > 0:
-        
-        if(use_embedding):
+    if(use_embedding):
+        if D.output_shapes[1][1] > 0:
+    
             with tf.name_scope('LabelPenalty'):
                 #label_penalty_reals = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=real_labels_out)
                 #label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)

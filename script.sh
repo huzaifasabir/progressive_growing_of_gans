@@ -13,4 +13,4 @@ echo "Training completed!"
 #echo "Performing inference"
 #python test.py densenet
 #echo "Inference completed!"
-#NV_GPU=6,7 sudo userdocker run -it -v /netscratch:/netscratch dlcc/tensorflow_opencv /netscratch/huzaifa/progressive_growing_of_gans-master/script.sh
+#NV_GPU=4,5,6,7 sudo userdocker run -it -v /netscratch:/netscratch dlcc/tensorflow_opencv /netscratch/huzaifa/progressive_growing_of_gans-master/script.sh

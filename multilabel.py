@@ -186,17 +186,18 @@ def trainModel(options):
 		onehot = [0 for i in range(index)]
 		df.at[i, '0'] = filteredTokenList
 		df.at[i, '2'] = idxFilteredTokenList
+		length = len(idxFilteredTokenList)
 		for ind in idxFilteredTokenList:
-			onehot[ind - 1] = 1
+			onehot[ind - 1] = 1/length
 		#print(onehot)
 		df.at[i, 'onehot'] = onehot
 	
 	#print(len(onehot))
-	#print(df)
+	print(df)
 
 	#occurrences.append(p)
-	#with open(options.dataFileName, "wb") as f:
-	#	pickle.dump([df, new_vocab, index], f)
+	with open(options.dataFileName, "wb") as f:
+		pickle.dump([df, new_vocab, index], f)
 
 
 

@@ -254,7 +254,7 @@ def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
     labels_in,                          # class labels
     embeddings_in,                      # text embeddings
-    predict_embedding   = True,
+    predict_embedding   = False,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
@@ -304,7 +304,7 @@ def D_paper(
                 with tf.variable_scope('Conv'):
                     x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
                     #print(x.shape)
-                if(predict_embedding):
+                if not (predict_embedding):
                     with tf.variable_scope('Dense2'):
                         label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
                     if(embedding_size > 0 ):    
