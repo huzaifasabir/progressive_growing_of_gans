@@ -27,7 +27,7 @@ import pandas
 # Generate random images or image grids using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
+def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
     
     embeddings_contant = True  
     labels_constant = False
@@ -57,7 +57,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/50k_sorted_tf/sum_embedding_category_average.labels')
+    labels = np.load('datasets/50k_sorted_tf/multilabel.labels')
     labels = labels.astype('float32')
     name1 = ''
     if labels_constant:

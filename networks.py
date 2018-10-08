@@ -351,6 +351,8 @@ def D_paper(
         #print('here1')
 
     assert combo_out.dtype == tf.as_dtype(dtype)
+
+    #print(combo_out.shape)
     
     scores_out = tf.identity(combo_out[:, :1], name='scores_out')
     labels_out = tf.identity(combo_out[:, 1:33], name='labels_out')
