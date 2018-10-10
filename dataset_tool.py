@@ -16,7 +16,7 @@ import numpy as np
 import tensorflow as tf
 import PIL.Image
 import pandas
-
+import pickle
 import tfutil
 import dataset
 
@@ -606,7 +606,12 @@ def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_task
 
 def create_from_images(tfrecord_dir, image_dir, shuffle):
     print('Loading images from "%s"' % image_dir)
-    df = pandas.read_csv('../preprocessing/50k_index_sorted.csv')
+    with open('subsetdata/test_edu_ref_com_category.pkl', "rb") as f:
+        df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+
+
+    df = df.reset_index(drop=True)
+    #df = pandas.read_csv('subsetdata/commics_child_cal_category.pkl')
     #image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
     list1 = []
     for i in range(len(df)):
@@ -645,15 +650,15 @@ def create_from_images(tfrecord_dir, image_dir, shuffle):
 
             tfr.add_image(img)
         
-        npy_filename =  '../preprocessing/labels.npy'
-        if os.path.isfile(npy_filename):
-            tfr.add_labels(np.load(npy_filename)[order])
-            print('label file : ' + npy_filename)
+        # npy_filename =  '../preprocessing/labels.npy'
+        # if os.path.isfile(npy_filename):
+        #     tfr.add_labels(np.load(npy_filename)[order])
+        #     print('label file : ' + npy_filename)
         
-        npy_emmbedding_filename =  '../preprocessing/sum_embedding_category.npy'
-        if os.path.isfile(npy_emmbedding_filename):
-            tfr.add_emmbeddings(np.load(npy_emmbedding_filename)[order])
-            print('label file : ' + npy_emmbedding_filename)
+        # npy_emmbedding_filename =  '../preprocessing/sum_embedding_category.npy'
+        # if os.path.isfile(npy_emmbedding_filename):
+        #     tfr.add_emmbeddings(np.load(npy_emmbedding_filename)[order])
+        #     print('label file : ' + npy_emmbedding_filename)
 
 #----------------------------------------------------------------------------
 

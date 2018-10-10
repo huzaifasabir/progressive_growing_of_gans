@@ -20,11 +20,17 @@ def fp32(*values):
     #print(len(values))
     return values if len(values) >= 2 else values[0]
 
+
+def cross_entropy(labels, logits):
+    epsilon = 1e-4
+    loss = - tf.reduce_mean(tf.reduce_sum(tf.multiply(tf.log(tf.nn.softmax(logits) + epsilon), labels), axis=1))
+    return loss
+
 #----------------------------------------------------------------------------
 # Generator loss function used in the paper (WGAN + AC-GAN).
 
 def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
-    use_embedding   = False,
+    use_embedding   = True,
     cond_weight = 1.0): # Weight of the conditioning term.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
@@ -43,14 +49,14 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     if(use_embedding):
         if D.output_shapes[1][1] > 0:
             with tf.name_scope('LabelPenalty'):
-                label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
+                label_penalty_fakes = cross_entropy(labels=labels, logits=fake_labels_out)
             loss += label_penalty_fakes * cond_weight
 
             print(label_penalty_fakes)
 
         
             with tf.name_scope('EmbeddingPenalty'):
-                embedding_penalty_fakes = tf.losses.mean_squared_error(labels=embeddings, logits=fake_embeddings_out)
+                embedding_penalty_fakes = tf.losses.mean_squared_error(embeddings, fake_embeddings_out)
             loss += embedding_penalty_fakes * cond_weight
     return loss
 
@@ -58,7 +64,7 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
 # Discriminator loss function used in the paper (WGAN-GP + AC-GAN).
 
 def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings,
-    use_embedding   = False,
+    use_embedding   = True,
     wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.
@@ -98,15 +104,15 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     if(use_embedding):
         if D.output_shapes[1][1] > 0:
             with tf.name_scope('LabelPenalty'):
-                label_penalty_reals = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=real_labels_out)
-                label_penalty_fakes = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=fake_labels_out)
+                label_penalty_reals = cross_entropy(labels=labels, logits=real_labels_out)
+                label_penalty_fakes = cross_entropy(labels=labels, logits=fake_labels_out)
                 label_penalty_reals = tfutil.autosummary('Loss/label_penalty_reals', label_penalty_reals)
                 label_penalty_fakes = tfutil.autosummary('Loss/label_penalty_fakes', label_penalty_fakes)
             loss += (label_penalty_reals + label_penalty_fakes) * cond_weight
         
             with tf.name_scope('EmbeddingPenalty'):
-                embedding_penalty_reals = tf.losses.mean_squared_error(labels=embeddings, logits=real_embeddings_out)
-                embedding_penalty_fakes = tf.losses.mean_squared_error(labels=embeddings, logits=fake_embeddings_out)
+                embedding_penalty_reals = tf.losses.mean_squared_error(embeddings, real_embeddings_out)
+                embedding_penalty_fakes = tf.losses.mean_squared_error(embeddings, fake_embeddings_out)
                 embedding_penalty_reals = tfutil.autosummary('Loss/embedding_penalty_reals', embedding_penalty_reals)
                 embedding_penalty_fakes = tfutil.autosummary('Loss/embedding_penalty_fakes', embedding_penalty_fakes)
             loss += (embedding_penalty_reals + embedding_penalty_fakes) * cond_weight
