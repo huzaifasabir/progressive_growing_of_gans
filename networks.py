@@ -153,7 +153,7 @@ def G_paper(
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
-    latent_size         = None,           # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
+    latent_size         = 300,           # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
     normalize_latents   = True,         # Normalize latent vectors before feeding them to the network?
     use_wscale          = True,         # Enable equalized learning rate?
     use_pixelnorm       = True,         # Enable pixelwise feature vector normalization?
@@ -254,7 +254,7 @@ def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
     labels_in,                          # class labels
     embeddings_in,                      # text embeddings
-    predict_embedding   = True,
+    predict_embedding   = False,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
