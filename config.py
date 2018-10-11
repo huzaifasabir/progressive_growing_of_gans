@@ -63,7 +63,7 @@ grid        = EasyDict(size='1080p', layout='random')       # Options for train.
 #desc += '-syn1024rgb';          dataset = EasyDict(class_name='dataset.SyntheticDataset', resolution=1024, num_channels=3)
 #desc += '-lsun-airplane';       dataset = EasyDict(tfrecord_dir='lsun-airplane-100k');       train.mirror_augment = True
 #desc += '-lsun-bedroom';        dataset = EasyDict(tfrecord_dir='lsun-bedroom-100k');        train.mirror_augment = True
-desc += '-specificCat';        dataset = EasyDict(tfrecord_dir='commics_child_cal');        train.mirror_augment = True
+desc += '-specificCat';        dataset = EasyDict(tfrecord_dir='onlytestprep');        train.mirror_augment = True
 #desc += '-lsun-bicycle';        dataset = EasyDict(tfrecord_dir='lsun-bicycle-100k');        train.mirror_augment = True
 #desc += '-lsun-bird';           dataset = EasyDict(tfrecord_dir='lsun-bird-100k');           train.mirror_augment = True
 #desc += '-lsun-boat';           dataset = EasyDict(tfrecord_dir='lsun-boat-100k');           train.mirror_augment = True
