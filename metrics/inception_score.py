@@ -95,21 +95,23 @@ def _init_inception():
     pool3 = sess.graph.get_tensor_by_name('pool_3:0')
     ops = pool3.graph.get_operations()
     for op_idx, op in enumerate(ops):
-        for o in op.outputs:
-            shape = o.get_shape()
-            shape = [s.value for s in shape]
-            new_shape = []
-            for j, s in enumerate(shape):
-                if s == 1 and j == 0:
-                    new_shape.append(None)
-                else:
-                    new_shape.append(s)
-            try:
-                o._shape = tf.TensorShape(new_shape)
-            except ValueError:
-                o._shape_val = tf.TensorShape(new_shape) # EDIT: added for compatibility with tensorflow 1.6.0
+        if(op_idx != 0):
+          for o in op.outputs:
+              shape = o.get_shape()
+              #print(o)
+              shape = [s.value for s in shape]
+              new_shape = []
+              for j, s in enumerate(shape):
+                  if s == 1 and j == 0:
+                      new_shape.append(None)
+                  else:
+                      new_shape.append(s)
+              try:
+                  o._shape = tf.TensorShape(new_shape)
+              except ValueError:
+                  o._shape_val = tf.TensorShape(new_shape) # EDIT: added for compatibility with tensorflow 1.6.0
     w = sess.graph.get_operation_by_name("softmax/logits/MatMul").inputs[1]
-    logits = tf.matmul(tf.squeeze(pool3), w)
+    logits = tf.matmul(tf.squeeze(pool3, [1, 2]), w)
     softmax = tf.nn.softmax(logits)
 
 #if softmax is None: # EDIT: commented out

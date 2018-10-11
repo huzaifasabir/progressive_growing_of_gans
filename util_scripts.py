@@ -210,6 +210,9 @@ def evaluate_metrics(run_id, log, metrics, num_images, real_passes, minibatch_si
 
     # Evaluate each network snapshot.
     for snapshot_idx, snapshot_pkl in enumerate(reversed(snapshot_pkls)):
+        print(snapshot_idx)
+        if(snapshot_idx == 6):
+            break
         prefix = 'network-snapshot-'; postfix = '.pkl'
         snapshot_name = os.path.basename(snapshot_pkl)
         assert snapshot_name.startswith(prefix) and snapshot_name.endswith(postfix)
