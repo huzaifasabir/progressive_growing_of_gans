@@ -22,6 +22,7 @@ import train
 import dataset
 import random
 import pandas
+import pickle
 
 #----------------------------------------------------------------------------
 # Generate random images or image grids using a previously trained network.
@@ -29,17 +30,21 @@ import pandas
 
 def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
     
-    embeddings_contant = False  
-    labels_constant = False
+    embeddings_contant = True  
+    labels_constant = True
     latents_constant = False
     
 
-    idx = random.randint(0,56880)
-    df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
+    
+    #df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
+    with open('../progressive_growing_of_gans-master/subsetdata/test_edu_ref_com_title.pkl', "rb") as f:
+            df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+
+    df = df.reset_index(drop=True)
     print('embeddings_contant : ' + str(embeddings_contant))
     print('labels_constant : ' + str(labels_constant))
     print('latents_constant : ' + str(latents_constant))
-
+    idx = random.randint(0,len(df))
     network_pkl = misc.locate_network_pkl(run_id, snapshot)
     if png_prefix is None:
         png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
@@ -54,10 +59,10 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
     #embeddings = np.zeros([1, 300], dtype=np.float32)
     #labels = np.zeros([1, 32], dtype=np.float32)
-    embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
+    embeddings = np.load('datasets/test_edu_ref_com/embedding_test_edu_ref_com_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/50k_sorted_tf/multilabel.labels')
+    labels = np.load('datasets/test_edu_ref_com/embedding_test_edu_ref_com_category.labels')
     labels = labels.astype('float32')
     name1 = ''
     if labels_constant:
@@ -76,7 +81,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         name = ''
         name = name + name1
         print('Generating png %d / %d...' % (png_idx, num_pngs))
-        rand = random.randint(0,56880)
+        rand = random.randint(0,len(df))
         #rand = png_idx * 1810
         #labels = sess.run(classes[0])
         if not latents_constant:
