@@ -31,6 +31,7 @@ def cross_entropy(labels, logits):
 
 def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     use_embedding   = True,
+    cond_weight1     = 5.0,
     cond_weight = 1.0): # Weight of the conditioning term.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
@@ -49,8 +50,8 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     if(use_embedding):
         if D.output_shapes[1][1] > 0:
             with tf.name_scope('LabelPenalty'):
-                label_penalty_fakes = cross_entropy(labels=labels, logits=fake_labels_out)
-            loss += label_penalty_fakes * cond_weight
+                label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
+            loss += label_penalty_fakes * cond_weight1
 
             print(label_penalty_fakes)
 
@@ -68,6 +69,7 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.
+    cond_weight1     = 5.0,
     cond_weight     = 1.0):     # Weight of the conditioning terms.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
@@ -104,11 +106,11 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     if(use_embedding):
         if D.output_shapes[1][1] > 0:
             with tf.name_scope('LabelPenalty'):
-                label_penalty_reals = cross_entropy(labels=labels, logits=real_labels_out)
-                label_penalty_fakes = cross_entropy(labels=labels, logits=fake_labels_out)
+                label_penalty_reals = tf.losses.mean_squared_error(labels, real_labels_out)
+                label_penalty_fakes = tf.losses.mean_squared_error(labels, fake_labels_out)
                 label_penalty_reals = tfutil.autosummary('Loss/label_penalty_reals', label_penalty_reals)
                 label_penalty_fakes = tfutil.autosummary('Loss/label_penalty_fakes', label_penalty_fakes)
-            loss += (label_penalty_reals + label_penalty_fakes) * cond_weight
+            loss += (label_penalty_reals + label_penalty_fakes) * cond_weight1
         
             with tf.name_scope('EmbeddingPenalty'):
                 embedding_penalty_reals = tf.losses.mean_squared_error(embeddings, real_embeddings_out)
