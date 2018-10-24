@@ -28,7 +28,7 @@ import pickle
 # Generate random images or image grids using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
+def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
     
     embeddings_contant = False  
     labels_constant = False
@@ -102,6 +102,77 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         #print(labels.shape)
         images = Gs.run(latents, label, embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (name, png_idx)), [0,255], grid_size)
+    open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
+    
+#..............................................
+
+
+
+
+def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
+    
+    embeddings_contant = False  
+    labels_constant = False
+    latents_constant = False
+    
+
+    
+    #df = pandas.read_csv('../preprocessing/50k_index_sorted.csv')
+    with open('subsetdata/without_refrence_chiristian_title.pkl', "rb") as f:
+            df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+    #image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    df = df.reset_index(drop=True)
+    idx = random.randint(0,len(df))
+    print('embeddings_contant : ' + str(embeddings_contant))
+    print('labels_constant : ' + str(labels_constant))
+    print('latents_constant : ' + str(latents_constant))
+
+    network_pkl = misc.locate_network_pkl(run_id, snapshot)
+    if png_prefix is None:
+        png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
+    random_state = np.random.RandomState(random_seed)
+
+    print('Loading network from "%s"...' % network_pkl)
+    G, D, Gs = misc.load_network_pkl(run_id, snapshot)
+
+    result_subdir = misc.create_result_subdir(config.result_dir+'/'+run_id, config.desc)
+    for classL in os.listdir('../50k_dataset'):
+        if not os.path.exists(result_subdir+'/'+classL):
+            os.makedirs(result_subdir+'/'+classL)
+
+    if latents_constant :
+        latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
+    #embeddings = np.zeros([1, 300], dtype=np.float32)
+    #labels = np.zeros([1, 32], dtype=np.float32)
+    embeddings = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_title.embeddings')
+    embeddings = embeddings.astype('float32')
+
+    labels = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_multilabel.labels')
+    labels = labels.astype('float32')
+    name1 = ''
+    
+    
+    #print(latents.shape)
+    it = 0
+    for png_idx in range(len(df)):
+        
+        
+        
+        
+        label = labels[png_idx]
+        label = label.reshape(1,label.shape[0])
+        embedding = embeddings[png_idx]
+        embedding = embedding.reshape(1,embedding.shape[0])
+        
+        for i in range(0,10):
+            it = it + 1
+            print('Generating png %d / %d...' % (it, len(df)*10))
+            latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
+            category1 = df.at[png_idx, 'category1']
+            im = df.at[png_idx, 'image'].split('.')
+            name = category1 + '_' + im[0] + str(i)
+            images = Gs.run(latents, label, embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
+            misc.save_image_grid(images, os.path.join(result_subdir, '%s/%s.jpg' % (category1,name)), [0,255], grid_size)
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
     
 
