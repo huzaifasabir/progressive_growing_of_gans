@@ -606,7 +606,7 @@ def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_task
 
 def create_from_images(tfrecord_dir, image_dir, shuffle):
     print('Loading images from "%s"' % image_dir)
-    with open('subsetdata/test_edu_ref_com_category.pkl', "rb") as f:
+    with open('subsetdata/childrenbook_category.pkl', "rb") as f:
         df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
 
 
