@@ -188,7 +188,7 @@ def G_paper(
             if res == 2: # 4x4
                 if normalize_latents: x = pixel_norm(x, epsilon=pixelnorm_epsilon)
                 with tf.variable_scope('Dense4'):
-                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
+                    label = act(apply_bias(dense(labels_in, fmaps=64, use_wscale=use_wscale)))
                 if(embedding_size > 0 ):    
                     with tf.variable_scope('Dense5'):
                         embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
@@ -305,7 +305,7 @@ def D_paper(
                     x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
                     #print(x.shape)
                 with tf.variable_scope('Dense2'):
-                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
+                    label = act(apply_bias(dense(labels_in, fmaps=64, use_wscale=use_wscale)))
                 if(embedding_size > 0 ):    
                     with tf.variable_scope('Dense3'):
                         embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))

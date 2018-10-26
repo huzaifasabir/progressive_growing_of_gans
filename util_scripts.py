@@ -53,7 +53,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     if latents_constant :
         latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
     #embeddings = np.zeros([1, 300], dtype=np.float32)
-    #labels = np.zeros([1, 32], dtype=np.float32)
+    labels = np.zeros([1, 32], dtype=np.float32)
     embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
     embeddings = embeddings.astype('float32')
 
