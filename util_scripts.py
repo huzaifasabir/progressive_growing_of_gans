@@ -22,20 +22,24 @@ import train
 import dataset
 import random
 import pandas
-
+import pickle
 #----------------------------------------------------------------------------
 # Generate random images or image grids using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
+def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
     
     embeddings_contant = False  
     labels_constant = False
-    latents_constant = False
+    latents_constant = True
     
 
-    idx = random.randint(0,56880)
-    df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
+    
+    #df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
+    with open('../progressive_growing_of_gans-master/subsetdata/without_refrence_chiristian_title.pkl', "rb") as f:
+            df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+    idx = random.randint(0,len(df))
+    df = df.reset_index(drop=True)
     print('embeddings_contant : ' + str(embeddings_contant))
     print('labels_constant : ' + str(labels_constant))
     print('latents_constant : ' + str(latents_constant))
@@ -53,11 +57,11 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     if latents_constant :
         latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
     #embeddings = np.zeros([1, 300], dtype=np.float32)
-    #labels = np.zeros([1, 32], dtype=np.float32)
-    embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
+    labels = np.zeros([1, 32], dtype=np.float32)
+    embeddings = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/50k_sorted_tf/multilabel.labels')
+    labels = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_multilabel.labels')
     labels = labels.astype('float32')
     name1 = ''
     if labels_constant:
@@ -76,7 +80,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         name = ''
         name = name + name1
         print('Generating png %d / %d...' % (png_idx, num_pngs))
-        rand = random.randint(0,56880)
+        rand = random.randint(0,len(df))
         #rand = png_idx * 1810
         #labels = sess.run(classes[0])
         if not latents_constant:
@@ -259,10 +263,11 @@ def evaluate_metrics(run_id, log, metrics, num_images, real_passes, minibatch_si
         print('%-10s' % title, end='')
         time_begin = time.time()
         labels = np.zeros([num_images, dataset_obj.label_size], dtype=np.float32)
+        embeddings = np.zeros([num_images, dataset_obj.label_size], dtype=np.float32)
         [obj.begin(mode) for obj in metric_objs]
         for begin in range(0, num_images, minibatch_size):
             end = min(begin + minibatch_size, num_images)
-            images, labels[begin:end] = dataset_obj.get_minibatch_np(end - begin)
+            images, labels[begin:end] , embeddings[begin:end] = dataset_obj.get_minibatch_np(end - begin)
             if mirror_augment:
                 images = misc.apply_mirror_augment(images)
             if images.shape[1] == 1:
@@ -291,7 +296,7 @@ def evaluate_metrics(run_id, log, metrics, num_images, real_passes, minibatch_si
             for begin in range(0, num_images, minibatch_size):
                 end = min(begin + minibatch_size, num_images)
                 latents = misc.random_latents(end - begin, Gs)
-                images = Gs.run(latents, labels[begin:end], num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_dtype=np.uint8)
+                images = Gs.run(latents, labels[begin:end], embeddings[begin:end],num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_dtype=np.uint8)
                 if images.shape[1] == 1:
                     images = np.tile(images, [1, 3, 1, 1]) # grayscale => RGB
                 [obj.feed(mode, images) for obj in metric_objs]
