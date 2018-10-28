@@ -32,7 +32,7 @@ def cross_entropy(labels, logits):
 def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     use_embedding   = True,
     cond_weight1     = 5.0,
-    cond_weight = 1.0): # Weight of the conditioning term.
+    cond_weight = 2.5): # Weight of the conditioning term.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
     print(G.input_shapes[0][1:])
@@ -70,7 +70,7 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.
     cond_weight1     = 5.0,
-    cond_weight     = 1.0):     # Weight of the conditioning terms.
+    cond_weight     = 2.5):     # Weight of the conditioning terms.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
     fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
