@@ -22,6 +22,7 @@ import train
 import dataset
 import random
 import pandas
+from sklearn.metrics import classification_report
 
 #----------------------------------------------------------------------------
 # Generate random images or image grids using a previously trained network.
@@ -57,8 +58,16 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/50k_sorted_tf/sum_embedding_category_average.labels')
-    labels = labels.astype('float32')
+    #labels = np.load('datasets/50k_sorted_tf/sum_embedding_category_average.labels')
+    #labels = labels.astype('float32')
+
+    classes = list(range(0, 32))
+    classes = tf.one_hot(classes, 32)
+    sess = tf.Session()
+    #labels = sess.run(classes[30])
+    #labels = labels.reshape(1,labels.shape[0])
+    
+
     name1 = ''
     if labels_constant:
         label = labels[idx]
@@ -82,8 +91,11 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         if not latents_constant:
             latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
         if not labels_constant:
-            label = labels[rand]
-            label = label.reshape(1,label.shape[0])
+            labels = sess.run(classes[png_idx])
+            label = labels.reshape(1,labels.shape[0])
+    
+            #label = labels[rand]
+            #label = label.reshape(1,label.shape[0])
             name = name + ' ' + df.at[rand, 'category1']
         if not embeddings_contant:
             embedding = embeddings[rand]
@@ -91,13 +103,62 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
             name = name + ' ' +title[:10]
             embedding = embedding.reshape(1,embedding.shape[0])
         
-        
+    
         
         #print(labels.shape)
         images = Gs.run(latents, label, embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (name, png_idx)), [0,255], grid_size)
+    sess.close()
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
     
+def fp321(*values):
+    if len(values) == 1 and isinstance(values[0], tuple):
+        values = values[0]
+    values = tuple(tf.cast(v, tf.float32) for v in values)
+    #print(len(values))
+    return values if len(values) >= 2 else values[0]
+#.......................................................................
+def discriminator_evaluation(run_id,png_prefix = None,snapshot=None):
+    network_pkl = misc.locate_network_pkl(run_id, snapshot)
+    if png_prefix is None:
+        png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
+    
+    print('Loading network from "%s"...' % network_pkl)
+    G, D, Gs = misc.load_network_pkl(run_id, snapshot)
+
+    training_set = dataset.load_dataset(data_dir=config.data_dir, verbose=True, **config.dataset)
+
+    #result_subdir = misc.create_result_subdir(config.result_dir+'/'+run_id, config.desc)
+    i = 0
+    while(i < 1):
+        reals, labels, embeddings = training_set.get_minibatch_np(1)
+        real_scores_out, real_labels_out = fp321(D.get_output_for(reals, labels, embeddings, is_training=False))
+        #fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
+        latents = tf.random_normal([1] + G.input_shapes[0][1:])
+
+        #fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
+
+        i = i + 1
+        print(labels)
+        t = tfutil.run(real_labels_out)
+        print(tfutil.run(real_labels_out))
+        print(tfutil.run(real_scores_out))
+        #print(tfutil.run(fake_images_out))
+        labels = tf.convert_to_tensor(labels[0], np.float32)
+        t = tf.convert_to_tensor(t[0],np.float32)
+        rec, update_op = tf.metrics.recall(labels, t)
+        TP = tf.count_nonzero(t * labels)
+        TN = tf.count_nonzero((t - 1) * (labels - 1))
+        FP = tf.count_nonzero(t * (labels - 1))
+        FN = tf.count_nonzero((t - 1) * labels)
+        print(TP)
+        print(rec)
+        print(update_op)
+        
+    print(reals.shape)
+    print(labels.shape)
+    print(embeddings.shape)
+    print("end")
 
 
 #----------------------------------------------------------------------------

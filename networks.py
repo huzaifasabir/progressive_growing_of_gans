@@ -320,7 +320,7 @@ def D_paper(
                     if(predict_embedding):
                         x = apply_bias(dense(combo_in, fmaps=1+label_size+embedding_size, gain=1, use_wscale=use_wscale))
                     else:
-                        x = apply_bias(dense(combo_in, fmaps=1, gain=1, use_wscale=use_wscale))
+                        x = apply_bias(dense(combo_in, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
                     #print(x.shape)
             return x
     
