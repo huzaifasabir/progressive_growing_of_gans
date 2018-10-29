@@ -31,7 +31,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     
     embeddings_contant = False  
     labels_constant = False
-    latents_constant = True
+    latents_constant = False
     
 
     
@@ -61,7 +61,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     embeddings = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_multilabel.labels')
+    labels = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_onehot.labels')
     labels = labels.astype('float32')
     name1 = ''
     if labels_constant:
