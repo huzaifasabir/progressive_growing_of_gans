@@ -138,7 +138,7 @@ def discriminator_evaluation(run_id,png_prefix = None,snapshot=None):
     real_array = []
     label_array = []
     
-    while(i < 444):
+    while(i < 200):
         reals, labels, embeddings = training_set.get_minibatch_np(128)
         real_scores_out, real_labels_out = fp321(D.get_output_for(reals, labels, embeddings, is_training=False))
        
@@ -185,33 +185,33 @@ def discriminator_evaluation(run_id,png_prefix = None,snapshot=None):
     real_array1 = np.asarray(real_array)
     label_array1 = np.asarray(label_array)
 
-    real_file = 'metrics1/real_array'
-    label_file = 'metrics/label_file'
+    real_file = 'metrics1/real_array1'
+    label_file = 'metrics1/label_file1'
 
     np.save(real_file,real_array1)
-    np.save(label_array1, label_file)
+    np.save(label_file,label_array1)
         
         
-    TP_file = 'metrics1/1TP'
-    TN_file = 'metrics1/1TN'
-    FP_file = 'metrics1/1FP'
-    FN_file = 'metrics1/1FN'
+    # TP_file = 'metrics1/1TP'
+    # TN_file = 'metrics1/1TN'
+    # FP_file = 'metrics1/1FP'
+    # FN_file = 'metrics1/1FN'
 
-    TP_np = np.asarray(TP)
-    TN_np = np.asarray(TN)
-    FP_np = np.asarray(FP)
-    FN_np = np.asarray(FN)
+    # TP_np = np.asarray(TP)
+    # TN_np = np.asarray(TN)
+    # FP_np = np.asarray(FP)
+    # FN_np = np.asarray(FN)
 
-    np.save(TP_file, TP_np)
-    np.save(TN_file, TN_np)
-    np.save(FP_file, FP_np )
-    np.save(FN_file,FN_np)
+    # np.save(TP_file, TP_np)
+    # np.save(TN_file, TN_np)
+    # np.save(FP_file, FP_np )
+    # np.save(FN_file,FN_np)
 
 
-    print(TP)
-    print(TN)
-    print(FP)
-    print(FN)
+    # print(TP)
+    # print(TN)
+    # print(FP)
+    # print(FN)
         
         
     #print(reals.shape)
