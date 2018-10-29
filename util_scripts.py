@@ -130,35 +130,94 @@ def discriminator_evaluation(run_id,png_prefix = None,snapshot=None):
 
     #result_subdir = misc.create_result_subdir(config.result_dir+'/'+run_id, config.desc)
     i = 0
-    while(i < 1):
-        reals, labels, embeddings = training_set.get_minibatch_np(1)
-        real_scores_out, real_labels_out = fp321(D.get_output_for(reals, labels, embeddings, is_training=False))
-        #fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
-        latents = tf.random_normal([1] + G.input_shapes[0][1:])
+    TP = [0 for t in range(32)]
+    TN = [0 for t in range(32)]
+    FP = [0 for t in range(32)]
+    FN = [0 for t in range(32)]
 
-        #fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
+    real_array = []
+    label_array = []
+    
+    while(i < 444):
+        reals, labels, embeddings = training_set.get_minibatch_np(128)
+        real_scores_out, real_labels_out = fp321(D.get_output_for(reals, labels, embeddings, is_training=False))
+       
 
         i = i + 1
-        print(labels)
-        t = tfutil.run(real_labels_out)
-        print(tfutil.run(real_labels_out))
-        print(tfutil.run(real_scores_out))
-        #print(tfutil.run(fake_images_out))
-        labels = tf.convert_to_tensor(labels[0], np.float32)
-        t = tf.convert_to_tensor(t[0],np.float32)
-        rec, update_op = tf.metrics.recall(labels, t)
-        TP = tf.count_nonzero(t * labels)
-        TN = tf.count_nonzero((t - 1) * (labels - 1))
-        FP = tf.count_nonzero(t * (labels - 1))
-        FN = tf.count_nonzero((t - 1) * labels)
-        print(TP)
-        print(rec)
-        print(update_op)
+        print(i)
+        #print(labels)
+
         
-    print(reals.shape)
-    print(labels.shape)
-    print(embeddings.shape)
-    print("end")
+        labels = tf.convert_to_tensor(labels, np.float32)
+        label_indice = tf.argmax(labels,axis=1)
+        real_indice = tf.argmax(real_labels_out,axis=1)
+        
+        # print(tfutil.run(labels))
+        # print(tfutil.run(real_labels_out))
+        # h=tfutil.run(labels)
+        # p=tfutil.run(real_labels_out)
+        # print(h.shape)
+        # print(p.shape)
+
+
+        label_i = tfutil.run(label_indice)
+        real_i =tfutil.run(real_indice)
+        #print(label_i)
+        #print(real_i)
+
+        real_array.append(real_i)
+        label_array.append(label_i)
+
+
+        # if(label_i == real_i):
+        #     TP[label_i] = TP[label_i] + 1
+        # elif (label_i != real_i):
+        #     TN[label_i] = TN[label_i] + 1
+        #     FP[real_i] = FP[real_i] + 1
+        
+        # for j in range(0,32):
+        #     if(j != label_i) and (j !=real_i):
+        #         FN[j] = FN[j] + 1
+
+    print(real_array)
+    print(label_array)
+
+    real_array1 = np.asarray(real_array)
+    label_array1 = np.asarray(label_array)
+
+    real_file = 'metrics1/real_array'
+    label_file = 'metrics/label_file'
+
+    np.save(real_file,real_array1)
+    np.save(label_array1, label_file)
+        
+        
+    TP_file = 'metrics1/1TP'
+    TN_file = 'metrics1/1TN'
+    FP_file = 'metrics1/1FP'
+    FN_file = 'metrics1/1FN'
+
+    TP_np = np.asarray(TP)
+    TN_np = np.asarray(TN)
+    FP_np = np.asarray(FP)
+    FN_np = np.asarray(FN)
+
+    np.save(TP_file, TP_np)
+    np.save(TN_file, TN_np)
+    np.save(FP_file, FP_np )
+    np.save(FN_file,FN_np)
+
+
+    print(TP)
+    print(TN)
+    print(FP)
+    print(FN)
+        
+        
+    #print(reals.shape)
+    #print(labels.shape)
+    #print(embeddings.shape)
+    #print("end")
 
 
 #----------------------------------------------------------------------------
