@@ -32,6 +32,7 @@ negate = ["aint", "arent", "cannot", "cant", "couldnt", "darent", "didnt", "does
 		  "without", "wont", "wouldnt", "won't", "wouldn't", "rarely", "seldom", "despite"]
 
 zhpunc = "''``’_,$%^*(+\"\']+|[+——！，。？、~@#￥%……&*（）：；《）《》“”()»〔〕-"
+s1 = '\'s'
 
 # Remove the negation words from stopwords list
 stopWordsList = set(stopwords.words('english')) - set(stopwords.words('english')).intersection(set(negate))
@@ -66,6 +67,7 @@ def loadWordEmbeddings(options, vocabulary):
 	    else:
 	        wordsNotFound.append(word)
 	print('Number of null word embeddings: %d' % np.sum(np.sum(embeddingMatrix, axis=1) == 0))
+	print(wordsNotFound)
 
 	return embeddingMatrix
 
@@ -73,8 +75,10 @@ def loadWordEmbeddings(options, vocabulary):
 def trainModel(options):
 	if (not os.path.exists(options.dataFileName)) or options.createNewDataFile:
 		# Load data into the system
-		df = pandas.read_csv(options.trainingDataFileName)
-		df['0'] = df['category'].values
+		with open('subsetdata/without_refrence_chiristian_title.pkl', "rb") as f:
+			df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+		df = df.reset_index(drop=True)
+		df['0'] = df['category1'].values
 		
 		print(df.shape)
 		#print(df)
@@ -85,7 +89,7 @@ def trainModel(options):
 		dropIndices = []
 		vocabulary = {}
 		maxVocabIndex = 1
-		
+		print(df.index)
 		for idx, i in enumerate(df.index):
 		#for i in range(0,3):
 			text = df.at[i, '0']
@@ -118,15 +122,19 @@ def trainModel(options):
 			for sub_category in wordList:
 				filteredTokenList1 = []
 				for word in sub_category:
-					if word.lower() not in stopWordsList and word not in string.punctuation + zhpunc:
-						filteredTokenList1.append(word.lower())
+					
+					if word.lower() not in stopWordsList and word not in string.punctuation + zhpunc and word not in s1:
+						if word.lower() == 'self-help':
+							w1 = word.split('-')
+							filteredTokenList1.append(w1[0].lower())
+							filteredTokenList1.append(w1[1].lower())
+						else:
+
+							filteredTokenList1.append(word.lower())
 				filteredTokenList.append(filteredTokenList1)
 			#print(filteredTokenList)
 			#filteredTokenList = wordList
 			#print(filteredTokenList)
-			if options.trainEmbeddinglayer:
-				# Reduce the words to the stem
-				filteredTokenList = [stemmer.stem(word) for word in filteredTokenList]
 			#print(filteredTokenList)
 
 			# Add the words to the vocabulary as well
@@ -154,8 +162,9 @@ def trainModel(options):
 				df.at[i, '0'] = filteredTokenList[:options.maxSequenceLength]
 				df.at[i, '2'] = idxFilteredTokenList[:options.maxSequenceLength]
 
-
+		print(vocabulary)
 		print(dropIndices)
+	
 
 
 		print ("Dropping unresolved indices")
@@ -163,16 +172,16 @@ def trainModel(options):
 		df = df.drop(df.index[dropIndices])
 		print ("Size after dropping: %d" % df.shape[0])
 		print ("Maximum vocab index found to be: %d" % maxVocabIndex)
-
+		print(df)
 		#Load FastText embeddings
 		print ("Loading FastText embedding matrix")
 		embeddingMatrix = loadWordEmbeddings(options, vocabulary)
 
 		# Save data
 		print ("Saving data")
-		with open(options.dataFileName, "wb") as f:
-			pickle.dump([df, vocabulary, maxVocabIndex, embeddingMatrix], f)
-		print ("Saving completed!")
+		with open('subsetdata/without_refrence_chiristian_embeddings_fasttext.pkl', "wb") as f:
+		 	pickle.dump([df, vocabulary, maxVocabIndex, embeddingMatrix], f)
+		# print ("Saving completed!")
 
 	
 

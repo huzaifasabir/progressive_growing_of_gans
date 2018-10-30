@@ -29,9 +29,9 @@ import pickle
 
 def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
     
-    embeddings_contant = False  
+    embeddings_contant = True  
     labels_constant = False
-    latents_constant = False
+    latents_constant = True
     
 
     
@@ -102,6 +102,115 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (name, png_idx)), [0,255], grid_size)
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
     
+
+#...............................................................................
+def fp321(*values):
+    if len(values) == 1 and isinstance(values[0], tuple):
+        values = values[0]
+    values = tuple(tf.cast(v, tf.float32) for v in values)
+    #print(len(values))
+    return values if len(values) >= 2 else values[0]
+#.......................................................................
+def discriminator_evaluation(run_id,png_prefix = None,snapshot=None):
+    network_pkl = misc.locate_network_pkl(run_id, snapshot)
+    if png_prefix is None:
+        png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
+    
+    print('Loading network from "%s"...' % network_pkl)
+    G, D, Gs = misc.load_network_pkl(run_id, snapshot)
+
+    training_set = dataset.load_dataset(data_dir=config.data_dir, verbose=True, **config.dataset)
+
+    result_subdir = misc.create_result_subdir(config.result_dir+'/'+run_id, config.desc)
+    i = 0
+    TP = [0 for t in range(30)]
+    TN = [0 for t in range(30)]
+    FP = [0 for t in range(30)]
+    FN = [0 for t in range(30)]
+
+    real_array = []
+    label_array = []
+    
+    while(i < 888):
+        reals, labels, embeddings = training_set.get_minibatch_np(64)
+        real_scores_out, real_labels_out, real_embedding_out = fp321(D.get_output_for(reals, labels, embeddings, is_training=False))
+       
+
+        i = i + 1
+        print(i)
+        #print(labels)
+
+        
+        labels = tf.convert_to_tensor(labels, np.float32)
+        label_indice = tf.argmax(labels,axis=1)
+        real_indice = tf.argmax(real_labels_out,axis=1)
+        
+        # print(tfutil.run(labels))
+        # print(tfutil.run(real_labels_out))
+        # h=tfutil.run(labels)
+        # p=tfutil.run(real_labels_out)
+        # print(h.shape)
+        # print(p.shape)
+
+
+        label_i = tfutil.run(label_indice)
+        real_i =tfutil.run(real_indice)
+        #print(label_i)
+        #print(real_i)
+
+        real_array.append(real_i)
+        label_array.append(label_i)
+
+
+        # if(label_i == real_i):
+        #     TP[label_i] = TP[label_i] + 1
+        # elif (label_i != real_i):
+        #     TN[label_i] = TN[label_i] + 1
+        #     FP[real_i] = FP[real_i] + 1
+        
+        # for j in range(0,32):
+        #     if(j != label_i) and (j !=real_i):
+        #         FN[j] = FN[j] + 1
+
+    #print(real_array)
+    #print(label_array)
+
+    real_array1 = np.asarray(real_array)
+    label_array1 = np.asarray(label_array)
+
+    real_file = 'metrics1/real_array1_new1'
+    label_file = 'metrics1/label_file1_new1'
+
+    np.save(real_file,real_array1)
+    np.save(label_file,label_array1)
+        
+        
+    # TP_file = 'metrics1/1TP'
+    # TN_file = 'metrics1/1TN'
+    # FP_file = 'metrics1/1FP'
+    # FN_file = 'metrics1/1FN'
+
+    # TP_np = np.asarray(TP)
+    # TN_np = np.asarray(TN)
+    # FP_np = np.asarray(FP)
+    # FN_np = np.asarray(FN)
+
+    # np.save(TP_file, TP_np)
+    # np.save(TN_file, TN_np)
+    # np.save(FP_file, FP_np )
+    # np.save(FN_file,FN_np)
+
+
+    # print(TP)
+    # print(TN)
+    # print(FP)
+    # print(FN)
+        
+        
+    #print(reals.shape)
+    #print(labels.shape)
+    #print(embeddings.shape)
+    #print("end")
 
 
 #----------------------------------------------------------------------------
