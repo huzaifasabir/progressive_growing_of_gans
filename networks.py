@@ -146,14 +146,16 @@ def G_paper(
     latents_in,                         # First input: Latent vectors [minibatch, latent_size].
     labels_in,                          # Second input: Labels [minibatch, label_size].
     embeddings_in,                      # Third input: Labels [minibatch, embedding_size].
+    multilabel_in,                      # Fourth input: Labels [minibatch, embedding_size].
     num_channels        = 1,            # Number of output color channels. Overridden based on dataset.
     resolution          = 32,           # Output resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
     embedding_size      = 0,            # Dimensionality of the embeddngs, 0 if no embedding. Overridden based on dataset.
+    multilabel_size      = 0,           # Dimensionality of the multilabel, 0 if no multilabel. Overridden based on dataset.
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
-    latent_size         = 300,           # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
+    latent_size         = None,           # Dimensionality of the latent vectors. None = min(fmap_base, fmap_max).
     normalize_latents   = True,         # Normalize latent vectors before feeding them to the network?
     use_wscale          = True,         # Enable equalized learning rate?
     use_pixelnorm       = True,         # Enable pixelwise feature vector normalization?
@@ -176,6 +178,9 @@ def G_paper(
     latents_in.set_shape([None, latent_size])
     labels_in.set_shape([None, label_size])
     embeddings_in.set_shape([None, embedding_size])
+    multilabel_in.set_shape([None, multilabel_size])
+
+    print('multilabel_size'+str(multilabel_size))
 
     #combo_in = tf.cast(tf.concat([latents_in, labels_in], axis=1), dtype)
     combo_in = latents_in
@@ -188,7 +193,9 @@ def G_paper(
             if res == 2: # 4x4
                 if normalize_latents: x = pixel_norm(x, epsilon=pixelnorm_epsilon)
                 with tf.variable_scope('Dense4'):
-                    label = act(apply_bias(dense(labels_in, fmaps=label_size, use_wscale=use_wscale)))
+                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
+                with tf.variable_scope('Dense_multilabel_G'):
+                    multilabel = act(apply_bias(dense(multilabel_in, fmaps=300, use_wscale=use_wscale)))
                 if(embedding_size > 0 ):    
                     with tf.variable_scope('Dense5'):
                         embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
@@ -197,7 +204,7 @@ def G_paper(
                     #print("hello x1")
                     #print(x.shape)
                     if(embedding_size > 0 ):
-                        combo = tf.cast(tf.concat([x,label,embedding], axis=1), dtype)
+                        combo = tf.cast(tf.concat([x,multilabel,label,embedding], axis=1), dtype)
                     else:
                         combo = tf.cast(tf.concat([x,label], axis=1), dtype)
                     x = dense(combo, fmaps=nf(res-1)*16, gain=np.sqrt(2)/4, use_wscale=use_wscale) # override gain to match the original Theano implementation
@@ -252,13 +259,15 @@ def G_paper(
 
 def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
-    labels_in,                          # class labels
+    labels_in,                          # class embeddings
     embeddings_in,                      # text embeddings
+    multilabel_in,                      # multilabel binary vector
     predict_embedding   = False,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
     embedding_size      = 0,        # Dimensionality of the embeddings, 0 if no embeddings. Overridden based on dataset.
+    multilabel_size      = 0,        # Dimensionality of the multilabel, 0 if no multilabel. Overridden based on dataset.
     fmap_base           = 8192,         # Overall multiplier for the number of feature maps.
     fmap_decay          = 1.0,          # log2 feature map reduction when doubling the resolution.
     fmap_max            = 512,          # Maximum number of feature maps in any layer.
@@ -280,6 +289,7 @@ def D_paper(
     images_in = tf.cast(images_in, dtype)
     labels_in.set_shape([None, label_size])
     embeddings_in.set_shape([None, embedding_size])
+    multilabel_in.set_shape([None, multilabel_size])
     lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
 
     # Building blocks.
@@ -309,16 +319,18 @@ def D_paper(
                 if(embedding_size > 0 ):    
                     with tf.variable_scope('Dense3'):
                         embedding = act(apply_bias(dense(embeddings_in, fmaps=300, use_wscale=use_wscale)))
+                with tf.variable_scope('Dense_multilabel'):
+                        multilabel = act(apply_bias(dense(multilabel_in, fmaps=300, use_wscale=use_wscale)))
                 with tf.variable_scope('Dense0'):
                     x = act(apply_bias(dense(x, fmaps=nf(res-2), use_wscale=use_wscale)))
                     if not (predict_embedding ): 
-                        combo_in = tf.cast(tf.concat([x,label,embedding], axis=1), dtype)
+                        combo_in = tf.cast(tf.concat([x,multilabel,label,embedding], axis=1), dtype)
                     else:
                         combo_in = x
                     #print(x.shape)
                 with tf.variable_scope('Dense1'):
                     if(predict_embedding):
-                        x = apply_bias(dense(combo_in, fmaps=1+label_size+embedding_size, gain=1, use_wscale=use_wscale))
+                        x = apply_bias(dense(combo_in, fmaps=1+multilabel_size+label_size+embedding_size, gain=1, use_wscale=use_wscale))
                     else:
                         x = apply_bias(dense(combo_in, fmaps=1, gain=1, use_wscale=use_wscale))
                     #print(x.shape)
@@ -359,6 +371,7 @@ def D_paper(
     #print(labels_out)
     if(predict_embedding):
         embeddings_out = tf.identity(combo_out[:, label_size + 1:], name='embeddings_out')
+
         return scores_out, labels_out, embeddings_out
     else: 
         return scores_out, labels_out

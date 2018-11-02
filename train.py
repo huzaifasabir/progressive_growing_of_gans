@@ -37,21 +37,23 @@ def setup_snapshot_image_grid(G, training_set,
     reals = np.zeros([gw * gh] + training_set.shape, dtype=training_set.dtype)
     labels = np.zeros([gw * gh, training_set.label_size], dtype=training_set.label_dtype)
     embeddings = np.zeros([gw * gh, training_set.embedding_size], dtype=training_set.embedding_dtype)
+    multilabels = np.zeros([gw * gh, training_set.multilabel_size], dtype=training_set.multilabel_dtype)
     for idx in range(gw * gh):
         x = idx % gw; y = idx // gw
         while True:
-            real, label, embedding = training_set.get_minibatch_np(1)
+            real, label, embedding, multilabel = training_set.get_minibatch_np(1)
             if layout == 'row_per_class' and training_set.label_size > 0:
                 if label[0, y % training_set.label_size] == 0.0:
                     continue
             reals[idx] = real[0]
             labels[idx] = label[0]
             embeddings[idx] = embedding[0]
+            multilabels[idx] = multilabel[0]
             break
 
     # Generate latents.
     latents = misc.random_latents(gw * gh, G)
-    return (gw, gh), reals, labels, embeddings, latents
+    return (gw, gh), reals, labels, embeddings, multilabels, latents
 
 #----------------------------------------------------------------------------
 # Just-in-time processing of training images before feeding them to the networks.
@@ -161,8 +163,8 @@ def train_progressive_gan(
             G, D, Gs = misc.load_pkl(network_pkl)
         else:
             print('Constructing networks...')
-            G = tfutil.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, embedding_size=training_set.embedding_size, **config.G)
-            D = tfutil.Network('D', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, embedding_size=training_set.embedding_size, **config.D)
+            G = tfutil.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, embedding_size=training_set.embedding_size, multilabel_size=training_set.multilabel_size, **config.G)
+            D = tfutil.Network('D', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, embedding_size=training_set.embedding_size, multilabel_size=training_set.multilabel_size, **config.D)
             Gs = G.clone('Gs')
         Gs_update_op = Gs.setup_as_moving_average_of(G, beta=G_smoothing)
     G.print_layers(); D.print_layers()
@@ -173,11 +175,12 @@ def train_progressive_gan(
         lrate_in        = tf.placeholder(tf.float32, name='lrate_in', shape=[])
         minibatch_in    = tf.placeholder(tf.int32, name='minibatch_in', shape=[])
         minibatch_split = minibatch_in // config.num_gpus
-        reals, labels, embeddings   = training_set.get_minibatch_tf()
+        reals, labels, embeddings, multilabel   = training_set.get_minibatch_tf()
         #print(tfutil.run(labels))
         reals_split     = tf.split(reals, config.num_gpus)
         labels_split    = tf.split(labels, config.num_gpus)
         embeddings_split    = tf.split(embeddings, config.num_gpus)
+        multilabel_split = tf.split(multilabel, config.num_gpus)
     G_opt = tfutil.Optimizer(name='TrainG', learning_rate=lrate_in, **config.G_opt)
     D_opt = tfutil.Optimizer(name='TrainD', learning_rate=lrate_in, **config.D_opt)
     for gpu in range(config.num_gpus):
@@ -188,19 +191,20 @@ def train_progressive_gan(
             reals_gpu = process_reals(reals_split[gpu], lod_in, mirror_augment, training_set.dynamic_range, drange_net)
             labels_gpu = labels_split[gpu]
             embeddings_gpu = embeddings_split[gpu]
+            multilabel_gpu = multilabel_split[gpu]
             with tf.name_scope('G_loss'), tf.control_dependencies(lod_assign_ops):
                 G_loss = tfutil.call_func_by_name(G=G_gpu, D=D_gpu, opt=G_opt, training_set=training_set, minibatch_size=minibatch_split, **config.G_loss)
             with tf.name_scope('D_loss'), tf.control_dependencies(lod_assign_ops):
-                D_loss = tfutil.call_func_by_name(G=G_gpu, D=D_gpu, opt=D_opt, training_set=training_set, minibatch_size=minibatch_split, reals=reals_gpu, labels=labels_gpu, embeddings=embeddings_gpu, **config.D_loss)
+                D_loss = tfutil.call_func_by_name(G=G_gpu, D=D_gpu, opt=D_opt, training_set=training_set, minibatch_size=minibatch_split, reals=reals_gpu, labels=labels_gpu, embeddings=embeddings_gpu, multilabel=multilabel_gpu, **config.D_loss)
             G_opt.register_gradients(tf.reduce_mean(G_loss), G_gpu.trainables)
             D_opt.register_gradients(tf.reduce_mean(D_loss), D_gpu.trainables)
     G_train_op = G_opt.apply_updates()
     D_train_op = D_opt.apply_updates()
 
     print('Setting up snapshot image grid...')
-    grid_size, grid_reals, grid_labels, grid_embeddings, grid_latents = setup_snapshot_image_grid(G, training_set, **config.grid)
+    grid_size, grid_reals, grid_labels, grid_embeddings, grid_multilabel, grid_latents = setup_snapshot_image_grid(G, training_set, **config.grid)
     sched = TrainingSchedule(total_kimg * 1000, training_set, **config.sched)
-    grid_fakes = Gs.run(grid_latents, grid_labels, grid_embeddings, minibatch_size=sched.minibatch//config.num_gpus)
+    grid_fakes = Gs.run(grid_latents, grid_labels, grid_embeddings, grid_multilabel, minibatch_size=sched.minibatch//config.num_gpus)
     #print(len(grid_labels))
     #print(grid_labels.shape)
 
@@ -268,7 +272,7 @@ def train_progressive_gan(
 
             # Save snapshots.
             if cur_tick % image_snapshot_ticks == 0 or done:
-                grid_fakes = Gs.run(grid_latents, grid_labels,  grid_embeddings, minibatch_size=sched.minibatch//config.num_gpus)
+                grid_fakes = Gs.run(grid_latents, grid_labels,  grid_embeddings, grid_multilabel, minibatch_size=sched.minibatch//config.num_gpus)
                 misc.save_image_grid(grid_fakes, os.path.join(result_subdir, 'fakes%06d.png' % (cur_nimg // 1000)), drange=drange_net, grid_size=grid_size)
             if cur_tick % network_snapshot_ticks == 0 or done:
                 misc.save_pkl((G, D, Gs), os.path.join(result_subdir, 'network-snapshot-%06d.pkl' % (cur_nimg // 1000)))

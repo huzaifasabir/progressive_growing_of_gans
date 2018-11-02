@@ -30,9 +30,10 @@ import pickle
 
 def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
     
-    embeddings_contant = True  
-    labels_constant = True
+    embeddings_contant = False  
+    labels_constant = False
     latents_constant = False
+    multilabel_constant = False
     
 
     
@@ -59,11 +60,13 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
     #embeddings = np.zeros([1, 300], dtype=np.float32)
     #labels = np.zeros([1, 32], dtype=np.float32)
-    embeddings = np.load('datasets/test_edu_ref_com/embedding_test_edu_ref_com_title.embeddings')
+    embeddings = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/test_edu_ref_com/embedding_test_edu_ref_com_category.labels')
+    labels = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_embeddings_fasttext.labels')
     labels = labels.astype('float32')
+    multilabels = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_multilabel.multilabel')
+    multilabels = multilabels.astype('float32')
     name1 = ''
     if labels_constant:
         label = labels[idx]
@@ -73,8 +76,14 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     if embeddings_contant:
         embedding = embeddings[idx]
         title = df.at[idx, 'title']
-        name1 = name1 + ' ' +title[:10]
+        #name1 = name1 + ' ' +title[:10]
         embedding = embedding.reshape(1,embedding.shape[0])
+
+    if multilabel_constant:
+        multilabel = multilabels[idx]
+        #title = df.at[idx, 'title']
+        #name1 = name1 + ' ' +title[:10]
+        multilabel = multilabel.reshape(1,multilabel.shape[0])
     
     #print(latents.shape)
     for png_idx in range(num_pngs):
@@ -90,16 +99,20 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
             label = labels[rand]
             label = label.reshape(1,label.shape[0])
             name = name + ' ' + df.at[rand, 'category1']
+        if not multilabel_constant:
+            multilabel = multilabels[rand]
+            multilabel = multilabel.reshape(1,multilabel.shape[0])
+            #name = name + ' ' + df.at[rand, 'category1']
         if not embeddings_contant:
             embedding = embeddings[rand]
             title = df.at[rand, 'title']
-            name = name + ' ' +title[:10]
+            #name = name + ' ' +title[:10]
             embedding = embedding.reshape(1,embedding.shape[0])
         
         
         
         #print(labels.shape)
-        images = Gs.run(latents, label, embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
+        images = Gs.run(latents, label, embedding, multilabel, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (name, png_idx)), [0,255], grid_size)
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
     

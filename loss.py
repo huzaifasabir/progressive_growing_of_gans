@@ -36,13 +36,13 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
     print(G.input_shapes[0][1:])
     print(latents)
-    labels, embeddings = training_set.get_random_labels_tf(minibatch_size)
+    labels, embeddings, multilabel = training_set.get_random_labels_tf(minibatch_size)
     #labels = training_set.get_random_labels_tf(minibatch_size)
-    fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
+    fake_images_out = G.get_output_for(latents, labels, embeddings, multilabel, is_training=True)
     if(use_embedding):
-        fake_scores_out, fake_labels_out, fake_embeddings_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
+        fake_scores_out, fake_labels_out, fake_embeddings_out = fp32(D.get_output_for(fake_images_out, labels, embeddings,multilabel, is_training=True))
     else:
-        fake_scores_out, fake_labels_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
+        fake_scores_out, fake_labels_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, multilabel, is_training=True))
     loss = -fake_scores_out
 
 
@@ -58,12 +58,17 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
             with tf.name_scope('EmbeddingPenalty'):
                 embedding_penalty_fakes = tf.losses.mean_squared_error(embeddings, fake_embeddings_out)
             loss += embedding_penalty_fakes * cond_weight
+
+    # with tf.name_scope('GeneratorLoss'):
+    #     tfutil.autosummary('Loss/generator_overall', loss)
+
+
     return loss
 
 #----------------------------------------------------------------------------
 # Discriminator loss function used in the paper (WGAN-GP + AC-GAN).
 
-def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings,
+def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings, multilabel,
     use_embedding   = False,
     wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
@@ -71,13 +76,13 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     cond_weight     = 1.0):     # Weight of the conditioning terms.
 
     latents = tf.random_normal([minibatch_size] + G.input_shapes[0][1:])
-    fake_images_out = G.get_output_for(latents, labels, embeddings, is_training=True)
+    fake_images_out = G.get_output_for(latents, labels, embeddings, multilabel, is_training=True)
     if(use_embedding):
         real_scores_out, real_labels_out, real_embeddings_out = fp32(D.get_output_for(reals, labels, embeddings, is_training=True))
         fake_scores_out, fake_labels_out, fake_embeddings_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
     else:
-        real_scores_out, real_labels_out = fp32(D.get_output_for(reals, labels, embeddings, is_training=True))
-        fake_scores_out, fake_labels_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, is_training=True))
+        real_scores_out, real_labels_out = fp32(D.get_output_for(reals, labels, embeddings, multilabel, is_training=True))
+        fake_scores_out, fake_labels_out = fp32(D.get_output_for(fake_images_out, labels, embeddings, multilabel, is_training=True))
     real_scores_out = tfutil.autosummary('Loss/real_scores', real_scores_out)
     fake_scores_out = tfutil.autosummary('Loss/fake_scores', fake_scores_out)
     loss = fake_scores_out - real_scores_out
@@ -86,9 +91,9 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
         mixing_factors = tf.random_uniform([minibatch_size, 1, 1, 1], 0.0, 1.0, dtype=fake_images_out.dtype)
         mixed_images_out = tfutil.lerp(tf.cast(reals, fake_images_out.dtype), fake_images_out, mixing_factors)
         if(use_embedding):
-            mixed_scores_out, mixed_labels_out, mixed_embeddings_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings, is_training=True))
+            mixed_scores_out, mixed_labels_out, mixed_embeddings_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings,multilabel, is_training=True))
         else:
-            mixed_scores_out, mixed_labels_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings, is_training=True))
+            mixed_scores_out, mixed_labels_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings,multilabel, is_training=True))
         mixed_scores_out = tfutil.autosummary('Loss/mixed_scores', mixed_scores_out)
         mixed_loss = opt.apply_loss_scaling(tf.reduce_sum(mixed_scores_out))
         mixed_grads = opt.undo_loss_scaling(fp32(tf.gradients(mixed_loss, [mixed_images_out])[0]))
@@ -116,6 +121,9 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
                 embedding_penalty_reals = tfutil.autosummary('Loss/embedding_penalty_reals', embedding_penalty_reals)
                 embedding_penalty_fakes = tfutil.autosummary('Loss/embedding_penalty_fakes', embedding_penalty_fakes)
             loss += (embedding_penalty_reals + embedding_penalty_fakes) * cond_weight
+
+    # with tf.name_scope('DiscrimnatorLoss'):
+    #     tfutil.autosummary('Loss/Discriminator_overall', loss)
 
     return loss
 
