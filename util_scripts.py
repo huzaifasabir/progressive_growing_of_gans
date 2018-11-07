@@ -30,21 +30,21 @@ import pickle
 
 def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
     
-    embeddings_contant = True  
-    labels_constant = True
+    embeddings_contant = False  
+    labels_constant = False
     latents_constant = False
     
 
     
     #df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
-    with open('../progressive_growing_of_gans-master/subsetdata/test_edu_ref_com_title.pkl', "rb") as f:
+    with open('../progressive_growing_of_gans-master/subsetdata/only_literature_fiction_title.pkl', "rb") as f:
             df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
 
     df = df.reset_index(drop=True)
     print('embeddings_contant : ' + str(embeddings_contant))
     print('labels_constant : ' + str(labels_constant))
     print('latents_constant : ' + str(latents_constant))
-    idx = random.randint(0,len(df))
+    idx = random.randint(0,len(df)-1)
     network_pkl = misc.locate_network_pkl(run_id, snapshot)
     if png_prefix is None:
         png_prefix = misc.get_id_string_for_network_pkl(network_pkl) + '-'
@@ -59,10 +59,10 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
     #embeddings = np.zeros([1, 300], dtype=np.float32)
     #labels = np.zeros([1, 32], dtype=np.float32)
-    embeddings = np.load('datasets/test_edu_ref_com/embedding_test_edu_ref_com_title.embeddings')
+    embeddings = np.load('datasets/only_literature_fiction/only_literature_fiction_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/test_edu_ref_com/embedding_test_edu_ref_com_category.labels')
+    labels = np.load('datasets/only_literature_fiction/only_literature_fiction_category.labels')
     labels = labels.astype('float32')
     name1 = ''
     if labels_constant:
@@ -73,7 +73,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
     if embeddings_contant:
         embedding = embeddings[idx]
         title = df.at[idx, 'title']
-        name1 = name1 + ' ' +title[:10]
+        #name1 = name1 + ' ' +title[:10]
         embedding = embedding.reshape(1,embedding.shape[0])
     
     #print(latents.shape)
@@ -81,7 +81,7 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
         name = ''
         name = name + name1
         print('Generating png %d / %d...' % (png_idx, num_pngs))
-        rand = random.randint(0,len(df))
+        rand = random.randint(0,len(df)-1)
         #rand = png_idx * 1810
         #labels = sess.run(classes[0])
         if not latents_constant:
@@ -92,8 +92,8 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
             name = name + ' ' + df.at[rand, 'category1']
         if not embeddings_contant:
             embedding = embeddings[rand]
-            title = df.at[rand, 'title']
-            name = name + ' ' +title[:10]
+            #title = df.at[rand, 'title']
+            #name = name + ' ' +title[:10]
             embedding = embedding.reshape(1,embedding.shape[0])
         
         
