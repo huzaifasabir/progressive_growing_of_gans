@@ -59,7 +59,7 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
 
 def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings,
     use_embedding   = False,
-    wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
+    wgan_lambda     = 50.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.
     cond_weight     = 1.0):     # Weight of the conditioning terms.
