@@ -55,7 +55,7 @@ def G_wgan_acgan(G, D, opt, training_set, minibatch_size,
 
 def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embeddings,
     use_embedding   = False,
-    wgan_lambda     = 10.0,     # Weight for the gradient penalty term.
+    wgan_lambda     = 20.0,     # Weight for the gradient penalty term.
     wgan_epsilon    = 0.001,    # Weight for the epsilon term, \epsilon_{drift}.
     wgan_target     = 1.0,      # Target value for gradient magnitudes.
     cond_weight     = 1.0):     # Weight of the conditioning terms.
@@ -73,8 +73,9 @@ def D_wgangp_acgan(G, D, opt, training_set, minibatch_size, reals, labels, embed
     loss = fake_scores_out - real_scores_out
 
     with tf.name_scope('GradientPenalty'):
-        mixing_factors = tf.random_uniform([minibatch_size, 1, 1, 1], 0.0, 1.0, dtype=fake_images_out.dtype)
-        mixed_images_out = tfutil.lerp(tf.cast(reals, fake_images_out.dtype), fake_images_out, mixing_factors)
+        # mixing_factors = tf.random_uniform([minibatch_size, 1, 1, 1], 0.0, 1.0, dtype=fake_images_out.dtype)
+        # mixed_images_out = tfutil.lerp(tf.cast(reals, fake_images_out.dtype), fake_images_out, mixing_factors)
+        mixed_images_out = fake_images_out
         if(use_embedding):
             mixed_scores_out, mixed_labels_out, mixed_embeddings_out = fp32(D.get_output_for(mixed_images_out, labels, embeddings, is_training=True))
         else:

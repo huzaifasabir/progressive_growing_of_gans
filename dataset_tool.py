@@ -19,6 +19,7 @@ import pandas
 
 import tfutil
 import dataset
+import pickle
 
 #----------------------------------------------------------------------------
 
@@ -606,13 +607,19 @@ def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_task
 
 def create_from_images(tfrecord_dir, image_dir, shuffle):
     print('Loading images from "%s"' % image_dir)
-    df = pandas.read_csv('../preprocessing/50k_index_sorted.csv')
+    with open('subsetdata/28cat.pkl', "rb") as f:
+        df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+
+
+    df = df.reset_index(drop=True)
+    #df = pandas.read_csv('subsetdata/commics_child_cal_category.pkl')
     #image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
     list1 = []
     for i in range(len(df)):
         list1.append(image_dir+'/' + df['category1'][i]+'/' + df['image'][i])
     
     image_filenames = list1
+
 
     print(image_filenames[0])
     print(len(image_filenames))

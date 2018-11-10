@@ -16,7 +16,7 @@ from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
 import string
 import re
-
+from matplotlib import pyplot as plt
 
 ########## Global properties ##########
 stemmer = SnowballStemmer("english")
@@ -66,6 +66,14 @@ def loadWordEmbeddings(options, vocabulary):
 	    else:
 	        wordsNotFound.append(word)
 	print('Number of null word embeddings: %d' % np.sum(np.sum(embeddingMatrix, axis=1) == 0))
+	print('not found: ',wordsNotFound)
+	print('total words : ',numWords)
+	print('total not found:', len(wordsNotFound))
+	hitratio = (1 - (len(wordsNotFound) / numWords)) * 100
+	print('hitratio : ',hitratio )
+
+
+
 
 	return embeddingMatrix
 
@@ -73,7 +81,12 @@ def loadWordEmbeddings(options, vocabulary):
 def trainModel(options):
 	if (not os.path.exists(options.dataFileName)) or options.createNewDataFile:
 		# Load data into the system
-		df = pandas.read_csv(options.trainingDataFileName)
+		
+		with open('subsetdata/without_refrence_chiristian_title'+'.pkl', "rb") as f:
+		    df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+
+
+		df = df.reset_index(drop=True)
 		df['0'] = df['category'].values
 		
 		print(df.shape)
@@ -85,6 +98,7 @@ def trainModel(options):
 		dropIndices = []
 		vocabulary = {}
 		maxVocabIndex = 1
+		vocabulary_frequency = {}
 		
 		for idx, i in enumerate(df.index):
 		#for i in range(0,3):
@@ -135,6 +149,9 @@ def trainModel(options):
 					if word not in vocabulary:
 						vocabulary[word] = maxVocabIndex
 						maxVocabIndex += 1
+						vocabulary_frequency[word] = 1
+					else:
+						vocabulary_frequency[word] = vocabulary_frequency[word] + 1
 			#print(vocabulary)
 
 			#idxFilteredTokenList = [vocabulary[word] for word in filteredTokenList]
@@ -166,13 +183,41 @@ def trainModel(options):
 
 		#Load FastText embeddings
 		print ("Loading FastText embedding matrix")
-		embeddingMatrix = loadWordEmbeddings(options, vocabulary)
+		#embeddingMatrix = loadWordEmbeddings(options, vocabulary)
+
+		print(len(filteredTokenList))
+		occurrences = []
+		u = 200
+		for it1 in range(0,u):
+			p = 0 
+			new_vocab = {}
+			index = 1
+			for word1 in vocabulary_frequency:
+				if(vocabulary_frequency[word1] > it1):
+					new_vocab[word1] = index
+					index = index + 1
+					p = p + 1
+			if(it1 == 25):
+				print(p)
+			occurrences.append(p)
+
+		x = [i for i in range(u)] 
+		#print(new_vocab)
+		plt.plot(x, occurrences)
+		
+		plt.xlabel('N')
+		plt.ylabel('Number of classes')
+		#plt.title('Occurence of class in at-least N images')
+		#plt.grid(True)
+		#plt.savefig("test13.png")
+		plt.show()
+		plt.show()
 
 		# Save data
-		print ("Saving data")
-		with open(options.dataFileName, "wb") as f:
-			pickle.dump([df, vocabulary, maxVocabIndex, embeddingMatrix], f)
-		print ("Saving completed!")
+		# print ("Saving data")
+		# with open(options.dataFileName, "wb") as f:
+		# 	pickle.dump([df, vocabulary, maxVocabIndex, embeddingMatrix], f)
+		# print ("Saving completed!")
 
 	
 
@@ -190,7 +235,7 @@ if __name__ == "__main__":
 	parser.add_option("--testDataFileName", action="store", type="string", dest="testDataFileName", default="./assets/test.csv", help="Name of the file containing the test samples")
 	parser.add_option("--testOutputFileName", action="store", type="string", dest="testOutputFileName", default="./assets/out.csv", help="Name of the file containing the predictions for the test samples")
 	parser.add_option("--useLSTM", action="store_true", dest="useLSTM", default=False, help="Use LSTM network instead of the ConvNet")
-	parser.add_option("--maxSequenceLength", action="store", type="int", dest="maxSequenceLength", default=10, help="Maximum sentence length to be used")
+	parser.add_option("--maxSequenceLength", action="store", type="int", dest="maxSequenceLength", default=1000, help="Maximum sentence length to be used")
 	parser.add_option("--modelName", action="store", type="string", dest="modelName", default="./sentiment-analyzer.h5", help="Name of the model to be saved")
 
 	parser.add_option("--batchSize", action="store", type="int", dest="batchSize", default=32, help="Batch size to be used")
