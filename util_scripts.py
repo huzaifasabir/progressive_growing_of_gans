@@ -169,15 +169,49 @@ def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, ima
 # Generate MP4 video of random interpolations using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_shrink=1, image_zoom=1, duration_sec=5.0, smoothing_sec=1.0, mp4=None, mp4_fps=30, mp4_codec='libx265', mp4_bitrate='16M', random_seed=1000, minibatch_size=8):
+def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_shrink=1, image_zoom=1, duration_sec=5.0, smoothing_sec=1.0, mp4=None, mp4_fps=10, mp4_codec='libx265', mp4_bitrate='16M', random_seed=1000, minibatch_size=8):
     network_pkl = misc.locate_network_pkl(run_id, snapshot)
     if mp4 is None:
         mp4 = misc.get_id_string_for_network_pkl(network_pkl) + '-lerp.mp4'
     num_frames = int(np.rint(duration_sec * mp4_fps))
     random_state = np.random.RandomState(random_seed)
 
+
+    with open('subsetdata/without_refrence_chiristian_title.pkl', "rb") as f:
+            df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+    #image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    df = df.reset_index(drop=True)
+
     print('Loading network from "%s"...' % network_pkl)
     G, D, Gs = misc.load_network_pkl(run_id, snapshot)
+
+    #result_subdir = misc.create_result_subdir(config.result_dir+'/'+run_id, config.desc)
+
+    embeddings = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_title.embeddings')
+    embeddings = embeddings.astype('float32')
+    idx = random.randint(0,len(df))
+    embedding = embeddings[idx]
+    embedding = embedding.reshape(1,embedding.shape[0])
+    title = df.at[idx, 'title']
+    print(title)
+    print(idx)
+    print(df.at[25219,'category'])
+    print(df.at[idx,'category1'])
+    image = df.at[idx, 'image']
+    print(image)
+    labels = np.load('datasets/without_refrence_chiristian/without_chris_ref_category_fast.labels')
+    labels = labels.astype('float32')
+
+    label = labels[idx]
+    label = label.reshape(1,label.shape[0])
+
+    label_video = []
+
+    embedding_video = []
+    for it1 in range(0, num_frames):
+        idx = random.randint(0,len(df))
+        embedding_video.append(embeddings[idx])
+        label_video.append(labels[idx])
 
     print('Generating latent vectors...')
     shape = [num_frames, np.prod(grid_size)] + Gs.input_shape[1:] # [frame, image, channel, component]
@@ -185,22 +219,17 @@ def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_s
     all_latents = scipy.ndimage.gaussian_filter(all_latents, [smoothing_sec * mp4_fps] + [0] * len(Gs.input_shape), mode='wrap')
     all_latents /= np.sqrt(np.mean(np.square(all_latents)))
 
+    #latents = misc.random_latents(np.prod(grid_size), Gs, random_state=random_state)
+
     # Frame generation func for moviepy.
     def make_frame(t):
         frame_idx = int(np.clip(np.round(t * mp4_fps), 0, num_frames - 1))
         latents = all_latents[frame_idx]
-        labels = np.zeros([latents.shape[0], 0], np.float32)
-        classes = list(range(0, 32))
-        classes = tf.one_hot(classes, 32)
-        sess = tf.Session()
-        labels = sess.run(classes[30])
-        labels = labels.reshape(1,labels.shape[0])
-        sess.close()
-        embeddings = np.load('datasets/50k_sorted_tf-rxx.embeddings')
-        embeddings = embeddings.astype('float32')
-        embedding = embeddings[54200]
-        embedding = embedding.reshape(1,embedding.shape[0])
-        images = Gs.run(latents, labels,embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
+        #embedding = embedding_video[frame_idx]
+        #embedding = embedding.reshape(1,embedding.shape[0])
+        # label = label_video[frame_idx]
+        # label = label.reshape(1,label.shape[0])
+        images = Gs.run(latents, label,embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         grid = misc.create_image_grid(images, grid_size).transpose(1, 2, 0) # HWC
         if image_zoom > 1:
             grid = scipy.ndimage.zoom(grid, [image_zoom, image_zoom, 1], order=0)
