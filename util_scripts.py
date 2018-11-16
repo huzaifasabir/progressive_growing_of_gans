@@ -28,15 +28,18 @@ import pickle
 # Generate random images or image grids using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
+def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=1000, minibatch_size=8):
     
     embeddings_contant = True  
     labels_constant = False
-    latents_constant = True
+    latents_constant = False
     
 
-    idx = random.randint(0,56880)
-    df = pandas.read_csv('datasets/50k_sorted_tf/50k_index_sorted.csv')
+    with open('subsetdata/without_refrence_chiristian_title.pkl', "rb") as f:
+            df, vocabulary, maxVocabIndex, embeddingMatrix = pickle.load(f)
+    #image_filenames = sorted(glob.glob(os.path.join(image_dir, '*')))
+    df = df.reset_index(drop=True)
+    idx = random.randint(0,len(df))
     print('embeddings_contant : ' + str(embeddings_contant))
     print('labels_constant : ' + str(labels_constant))
     print('latents_constant : ' + str(latents_constant))
@@ -55,10 +58,10 @@ def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, im
         latents = misc.random_latents(np.prod(grid_size), Gs, random_state=None)
     #embeddings = np.zeros([1, 300], dtype=np.float32)
     #labels = np.zeros([1, 32], dtype=np.float32)
-    embeddings = np.load('datasets/50k_sorted_tf/sum_embedding_title.embeddings')
+    embeddings = np.load('datasets/without_refrence_chiristian/without_refrence_chiristian_title.embeddings')
     embeddings = embeddings.astype('float32')
 
-    labels = np.load('datasets/50k_sorted_tf/sum_embedding_category_average.labels')
+    labels = np.load('datasets/without_refrence_chiristian/without_chris_ref_category_fast.labels')
     labels = labels.astype('float32')
     name1 = ''
     if labels_constant:
@@ -77,7 +80,7 @@ def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, im
         name = ''
         name = name + name1
         print('Generating png %d / %d...' % (png_idx, num_pngs))
-        rand = random.randint(0,56880)
+        rand = random.randint(0,len(df))
         #rand = png_idx * 1810
         #labels = sess.run(classes[0])
         if not latents_constant:
@@ -99,7 +102,7 @@ def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, im
         misc.save_image_grid(images, os.path.join(result_subdir, '%s%06d.png' % (name, png_idx)), [0,255], grid_size)
     open(os.path.join(result_subdir, '_done.txt'), 'wt').close()
     
-def generate_fake_images(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
+def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, image_shrink=1, png_prefix=None, random_seed=500, minibatch_size=8):
     
     embeddings_contant = False  
     labels_constant = False
