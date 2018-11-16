@@ -86,7 +86,7 @@ def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_s
 # Generate MP4 video of training progress for a previous training run.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_training_video(run_id, duration_sec=20.0, time_warp=1.5, mp4=None, mp4_fps=30, mp4_codec='libx265', mp4_bitrate='16M'):
+def generate_training_video(run_id, duration_sec=20.0, time_warp=1.5, mp4=None, mp4_fps=10, mp4_codec='libx265', mp4_bitrate='16M'):
     src_result_subdir = misc.locate_result_subdir(run_id)
     if mp4 is None:
         mp4 = os.path.basename(src_result_subdir) + '-train.mp4'
