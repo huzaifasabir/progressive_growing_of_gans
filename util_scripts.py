@@ -172,7 +172,7 @@ def generate_fake_images1(run_id, snapshot=None, grid_size=[1,1], num_pngs=1, im
 # Generate MP4 video of random interpolations using a previously trained network.
 # To run, uncomment the appropriate line in config.py and launch train.py.
 
-def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_shrink=1, image_zoom=1, duration_sec=5.0, smoothing_sec=1.0, mp4=None, mp4_fps=10, mp4_codec='libx265', mp4_bitrate='16M', random_seed=1000, minibatch_size=8):
+def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_shrink=1, image_zoom=1, duration_sec=5.0, smoothing_sec=6.0, mp4=None, mp4_fps=10, mp4_codec='libx265', mp4_bitrate='8M', random_seed=1000, minibatch_size=8):
     network_pkl = misc.locate_network_pkl(run_id, snapshot)
     if mp4 is None:
         mp4 = misc.get_id_string_for_network_pkl(network_pkl) + '-lerp.mp4'
@@ -198,7 +198,7 @@ def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_s
     title = df.at[idx, 'title']
     print(title)
     print(idx)
-    print(df.at[25219,'category'])
+    #print(df.at[25219,'category'])
     print(df.at[idx,'category1'])
     image = df.at[idx, 'image']
     print(image)
@@ -212,7 +212,7 @@ def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_s
 
     embedding_video = []
     for it1 in range(0, num_frames):
-        idx = random.randint(0,len(df))
+        idx = it1 + 1800 * 5
         embedding_video.append(embeddings[idx])
         label_video.append(labels[idx])
 
@@ -228,10 +228,10 @@ def generate_interpolation_video(run_id, snapshot=None, grid_size=[1,1], image_s
     def make_frame(t):
         frame_idx = int(np.clip(np.round(t * mp4_fps), 0, num_frames - 1))
         latents = all_latents[frame_idx]
-        #embedding = embedding_video[frame_idx]
-        #embedding = embedding.reshape(1,embedding.shape[0])
-        # label = label_video[frame_idx]
-        # label = label.reshape(1,label.shape[0])
+        embedding = embedding_video[frame_idx]
+        embedding = embedding.reshape(1,embedding.shape[0])
+        label = label_video[frame_idx]
+        label = label.reshape(1,label.shape[0])
         images = Gs.run(latents, label,embedding, minibatch_size=minibatch_size, num_gpus=config.num_gpus, out_mul=127.5, out_add=127.5, out_shrink=image_shrink, out_dtype=np.uint8)
         grid = misc.create_image_grid(images, grid_size).transpose(1, 2, 0) # HWC
         if image_zoom > 1:
