@@ -36,7 +36,7 @@ class TFRecordDataset:
         tfrecord_dir,               # Directory containing a collection of tfrecords files.
         resolution      = None,     # Dataset resolution, None = autodetect.
         label_file      = None,     # Relative path of the labels file, None = autodetect.
-        max_label_size  = 0,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
+        max_label_size  = 300,        # 0 = no labels, 'full' = full labels, <int> = N first label components.
         repeat          = True,     # Repeat dataset indefinitely.
         shuffle_mb      = 4096,     # Shuffle data within specified window (megabytes), 0 = disable shuffling.
         prefetch_mb     = 2048,     # Amount of data to prefetch (megabytes), 0 = disable prefetching.
@@ -95,11 +95,13 @@ class TFRecordDataset:
         assert all(shape[1] == self.resolution // (2**lod) for shape, lod in zip(tfr_shapes, tfr_lods))
         assert all(lod in tfr_lods for lod in range(self.resolution_log2 - 1))
 
-        # Load labels.
+         # Load labels.
         assert max_label_size == 'full' or max_label_size >= 0
         self._np_labels = np.zeros([1<<20, 0], dtype=np.float32)
         if self.label_file is not None and max_label_size != 0:
             self._np_labels = np.load(self.label_file)
+            self._np_labels = self._np_labels.astype('float32')
+            #self._np_labels = self._np_labels.reshape(self._np_labels.shape[0],1)
             assert self._np_labels.ndim == 2
         if max_label_size != 'full' and self._np_labels.shape[1] > max_label_size:
             self._np_labels = self._np_labels[:, :max_label_size]
@@ -130,6 +132,8 @@ class TFRecordDataset:
                 self._tf_datasets[tfr_lod] = dset
             self._tf_iterator = tf.data.Iterator.from_structure(self._tf_datasets[0].output_types, self._tf_datasets[0].output_shapes)
             self._tf_init_ops = {lod: self._tf_iterator.make_initializer(dset) for lod, dset in self._tf_datasets.items()}
+        print(self.label_file)
+        print(self.label_size)
 
     # Use the given minibatch size and level-of-detail for the data returned by get_minibatch_tf().
     def configure(self, minibatch_size, lod=0):
@@ -232,6 +236,7 @@ def load_dataset(class_name='dataset.TFRecordDataset', data_dir=None, verbose=Fa
     if verbose:
         print('Streaming data using %s...' % class_name)
     dataset = tfutil.import_obj(class_name)(**adjusted_kwargs)
+    print(adjusted_kwargs['tfrecord_dir'])
     if verbose:
         print('Dataset shape =', np.int32(dataset.shape).tolist())
         print('Dynamic range =', dataset.dynamic_range)

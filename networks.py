@@ -172,7 +172,8 @@ def G_paper(
     
     latents_in.set_shape([None, latent_size])
     labels_in.set_shape([None, label_size])
-    combo_in = tf.cast(tf.concat([latents_in, labels_in], axis=1), dtype)
+    #combo_in = tf.cast(tf.concat([latents_in, labels_in], axis=1), dtype)
+    combo_in = latents_in
     lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
 
     # Building blocks.
@@ -180,8 +181,11 @@ def G_paper(
         with tf.variable_scope('%dx%d' % (2**res, 2**res)):
             if res == 2: # 4x4
                 if normalize_latents: x = pixel_norm(x, epsilon=pixelnorm_epsilon)
+                with tf.variable_scope('Dense4'):
+                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
                 with tf.variable_scope('Dense'):
-                    x = dense(x, fmaps=nf(res-1)*16, gain=np.sqrt(2)/4, use_wscale=use_wscale) # override gain to match the original Theano implementation
+                    combo = tf.cast(tf.concat([x,label], axis=1), dtype)
+                    x = dense(combo, fmaps=nf(res-1)*16, gain=np.sqrt(2)/4, use_wscale=use_wscale) # override gain to match the original Theano implementation
                     x = tf.reshape(x, [-1, nf(res-1), 4, 4])
                     x = PN(act(apply_bias(x)))
                 with tf.variable_scope('Conv'):
@@ -233,6 +237,7 @@ def G_paper(
 
 def D_paper(
     images_in,                          # Input: Images [minibatch, channel, height, width].
+    labels_in,
     num_channels        = 1,            # Number of input color channels. Overridden based on dataset.
     resolution          = 32,           # Input resolution. Overridden based on dataset.
     label_size          = 0,            # Dimensionality of the labels, 0 if no labels. Overridden based on dataset.
@@ -255,6 +260,7 @@ def D_paper(
 
     images_in.set_shape([None, num_channels, resolution, resolution])
     images_in = tf.cast(images_in, dtype)
+    labels_in.set_shape([None, label_size])
     lod_in = tf.cast(tf.get_variable('lod', initializer=np.float32(0.0), trainable=False), dtype)
 
     # Building blocks.
@@ -276,12 +282,15 @@ def D_paper(
             else: # 4x4
                 if mbstd_group_size > 1:
                     x = minibatch_stddev_layer(x, mbstd_group_size)
+                with tf.variable_scope('Dense2'):
+                    label = act(apply_bias(dense(labels_in, fmaps=300, use_wscale=use_wscale)))
                 with tf.variable_scope('Conv'):
                     x = act(apply_bias(conv2d(x, fmaps=nf(res-1), kernel=3, use_wscale=use_wscale)))
                 with tf.variable_scope('Dense0'):
                     x = act(apply_bias(dense(x, fmaps=nf(res-2), use_wscale=use_wscale)))
+                    combo_in = tf.cast(tf.concat([x,label], axis=1), dtype)               
                 with tf.variable_scope('Dense1'):
-                    x = apply_bias(dense(x, fmaps=1+label_size, gain=1, use_wscale=use_wscale))
+                    x = apply_bias(dense(combo_in, fmaps=1, gain=1, use_wscale=use_wscale))
             return x
     
     # Linear structure: simple but inefficient.
